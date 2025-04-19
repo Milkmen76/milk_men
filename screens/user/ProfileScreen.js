@@ -27,9 +27,10 @@ const avatarImages = {
   'favicon.png': require('../../assets/favicon.png'),
 };
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ route }) => {
   const navigation = useNavigation();
   const { user, logout, updateUserData } = useAuth();
+  const focusOnAddress = route.params?.focusOnAddress;
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -42,11 +43,27 @@ const ProfileScreen = () => {
   const [orderCount, setOrderCount] = useState(0);
   const [subscriptionCount, setSubscriptionCount] = useState(0);
   
+  // Address input ref to focus on it when requested
+  const addressInputRef = React.useRef(null);
+  
   // Avatar selection state
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState('milk-icon.png');
   const [availableAvatars, setAvailableAvatars] = useState([]);
   
+  // Check if we should focus on address
+  useEffect(() => {
+    if (focusOnAddress && !editing) {
+      setEditing(true);
+      // We'll focus on the address input after render
+      setTimeout(() => {
+        if (addressInputRef.current) {
+          addressInputRef.current.focus();
+        }
+      }, 300);
+    }
+  }, [focusOnAddress]);
+
   // Load user data when component mounts
   useEffect(() => {
     loadUserData();
@@ -139,6 +156,11 @@ const ProfileScreen = () => {
         setEditing(false);
         setPassword('');
         setConfirmPassword('');
+        
+        // If we came from address edit, navigate back to refresh home screen
+        if (focusOnAddress) {
+          navigation.goBack();
+        }
       } else {
         Alert.alert('Error', result.message || 'Failed to update profile');
       }
@@ -292,10 +314,11 @@ const ProfileScreen = () => {
             <Text style={styles.label}>Delivery Address</Text>
             {editing ? (
               <TextInput
-                style={styles.input}
+                ref={addressInputRef}
+                style={[styles.input, styles.textAreaInput]}
                 value={address}
                 onChangeText={setAddress}
-                placeholder="Your delivery address"
+                placeholder="Enter your delivery address"
                 multiline
                 numberOfLines={3}
               />
@@ -601,6 +624,10 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: '#f8f8f8'
+  },
+  textAreaInput: {
+    height: 100,
+    textAlignVertical: 'top'
   },
   quickLinks: {
     padding: 16

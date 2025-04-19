@@ -186,7 +186,13 @@ const HomeScreen = () => {
       });
       
       setProducts(productsWithCategories);
-      setAddress(user?.profile_info?.address || 'Add Delivery Address');
+      
+      // Update address from user profile
+      if (user?.profile_info?.address) {
+        setAddress(user.profile_info.address);
+      } else {
+        setAddress('');
+      }
     } catch (error) {
       console.error('Error fetching products: ', error);
     }
@@ -251,7 +257,7 @@ const HomeScreen = () => {
   };
 
   const handleAddressPress = () => {
-    navigation.navigate('ProfileTab');
+    navigation.navigate('ProfileTab', { focusOnAddress: true });
   };
 
   const handleProfilePress = () => {
@@ -531,13 +537,21 @@ const HomeScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.headerWrapper}>
-        <Text style={styles.headerTitle}>home page</Text>
       </View>
       
       <View style={styles.addressHeader}>
         <TouchableOpacity style={styles.addressButton} onPress={handleAddressPress}>
-          <Text style={styles.addressButtonText}>Add Address</Text>
-          <Text style={styles.plusIcon}>+</Text>
+          {address ? (
+            <>
+              <Text style={styles.addressButtonText}>{address}</Text>
+              <Text style={styles.editIcon}>✏️</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.addressButtonText}>Add Delivery Address</Text>
+              <Text style={styles.plusIcon}>+</Text>
+            </>
+          )}
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
@@ -708,9 +722,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addressButtonText: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
     color: '#333',
+    maxWidth: windowWidth - 120, // Limit width to prevent overflow
   },
   plusIcon: {
     fontSize: 24,
@@ -1075,6 +1090,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  editIcon: {
+    fontSize: 18,
+    color: '#333',
+    marginLeft: 10,
   },
 });
 
