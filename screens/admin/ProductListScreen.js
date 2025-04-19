@@ -96,7 +96,7 @@ const ProductListScreen = () => {
       
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{item.name}</Text>
-        <Text style={styles.productPrice}>${parseFloat(item.price).toFixed(2)}</Text>
+        <Text style={styles.productPrice}>₹{parseFloat(item.price).toFixed(2)}</Text>
         <Text style={styles.vendorName}>
           Vendor: {vendors[item.vendor_id] || 'Unknown'}
         </Text>

@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
+import { UserBottomTabs, VendorBottomTabs, AdminBottomTabs } from './BottomTabNavigator';
 
 const Stack = createNativeStackNavigator();
 
@@ -70,122 +71,97 @@ const RoleBasedNavigator = () => {
 
   // Role-based navigation
   console.log(`RoleBasedNavigator - Rendering screens for role: ${userRole}`);
+
+  // Create main navigation stack that includes both tab navigation and individual screens
+  const createMainNavigator = (MainTabs, screenOptions, additionalScreens) => (
+    <Stack.Navigator 
+      initialRouteName="MainTabs"
+      screenOptions={screenOptions}
+    >
+      <Stack.Screen 
+        name="MainTabs" 
+        component={MainTabs}
+        options={{ headerShown: false }}
+      />
+      {additionalScreens.map(screen => (
+        <Stack.Screen
+          key={screen.name}
+          name={screen.name}
+          component={screen.component}
+          options={screen.options}
+          initialParams={screen.initialParams}
+        />
+      ))}
+    </Stack.Navigator>
+  );
   
   if (userRole === 'user') {
-    return (
-      <Stack.Navigator screenOptions={{
-        headerStyle: {
-          backgroundColor: '#f0f8ff', // Light blue for user screens
-        },
-        headerTintColor: '#333',
-      }}>
-        <Stack.Screen 
-          name="UserHome" 
-          component={require('../screens/user/HomeScreen').default} 
-          options={{ title: 'Home' }}
-        />
-        <Stack.Screen 
-          name="VendorList" 
-          component={require('../screens/user/VendorListScreen').default} 
-          options={{ title: 'Milk Vendors' }}
-        />
-        <Stack.Screen 
-          name="ProductList" 
-          component={require('../screens/user/ProductListScreen').default} 
-          options={{ title: 'Products' }}
-        />
-        <Stack.Screen 
-          name="OrderScreen" 
-          component={require('../screens/user/OrderScreen').default} 
-          options={{ title: 'Place Order' }}
-        />
-        <Stack.Screen 
-          name="SubscriptionScreen" 
-          component={require('../screens/user/SubscriptionScreen').default} 
-          options={{ title: 'Subscribe' }}
-        />
-        <Stack.Screen 
-          name="HistoryScreen" 
-          component={require('../screens/user/HistoryScreen').default} 
-          options={{ title: 'My Orders & Subscriptions' }}
-          initialParams={{ initialTab: 'orders' }}
-        />
-        <Stack.Screen 
-          name="ProfileScreen" 
-          component={require('../screens/user/ProfileScreen').default} 
-          options={{ title: 'My Profile' }}
-        />
-      </Stack.Navigator>
+    // Additional screens for users that aren't in the bottom tabs
+    const userAdditionalScreens = [
+      {
+        name: 'ProductList',
+        component: require('../screens/user/ProductListScreen').default,
+        options: { title: 'Products' }
+      },
+      {
+        name: 'OrderScreen',
+        component: require('../screens/user/OrderScreen').default,
+        options: { title: 'Place Order' }
+      },
+      {
+        name: 'SubscriptionScreen',
+        component: require('../screens/user/SubscriptionScreen').default,
+        options: { title: 'Subscribe' }
+      },
+      {
+        name: 'HistoryScreen',
+        component: require('../screens/user/HistoryScreen').default,
+        options: { title: 'My Orders & Subscriptions' },
+        initialParams: { initialTab: 'orders' }
+      }
+    ];
+
+    return createMainNavigator(
+      UserBottomTabs,
+      {
+        headerStyle: { backgroundColor: '#f0f8ff' },
+        headerTintColor: '#333'
+      },
+      userAdditionalScreens
     );
   }
   
   if (userRole === 'vendor') {
-    return (
-      <Stack.Navigator screenOptions={{
-        headerStyle: {
-          backgroundColor: '#fdf5e6', // Light orange for vendor screens
-        },
-        headerTintColor: '#333',
-      }}>
-        <Stack.Screen 
-          name="DashboardScreen" 
-          component={require('../screens/vendor/DashboardScreen').default} 
-          options={{ title: 'Vendor Dashboard' }}
-        />
-        <Stack.Screen 
-          name="ProductManagementScreen" 
-          component={require('../screens/vendor/ProductManagementScreen').default} 
-          options={{ title: 'Manage Products' }}
-        />
-        <Stack.Screen 
-          name="OrderManagementScreen" 
-          component={require('../screens/vendor/OrderManagementScreen').default} 
-          options={{ title: 'Manage Orders' }}
-        />
-        <Stack.Screen 
-          name="ProfileScreen" 
-          component={require('../screens/vendor/ProfileScreen').default} 
-          options={{ title: 'Vendor Profile' }}
-        />
-      </Stack.Navigator>
+    // Additional screens for vendors that aren't in the bottom tabs
+    const vendorAdditionalScreens = [];
+
+    return createMainNavigator(
+      VendorBottomTabs,
+      {
+        headerStyle: { backgroundColor: '#fdf5e6' },
+        headerTintColor: '#333'
+      },
+      vendorAdditionalScreens
     );
   }
   
   if (userRole === 'admin') {
-    return (
-      <Stack.Navigator screenOptions={{
-        headerStyle: {
-          backgroundColor: '#f0fff0', // Light green for admin screens
-        },
-        headerTintColor: '#333',
-      }}>
-        <Stack.Screen 
-          name="VendorApproval" 
-          component={require('../screens/admin/VendorApprovalScreen').default} 
-          options={{ title: 'Vendor Approvals' }}
-        />
-        <Stack.Screen 
-          name="UserListScreen" 
-          component={require('../screens/admin/UserListScreen').default} 
-          options={{ title: 'All Users' }}
-        />
-        {/* VendorListScreen removed - using VendorApproval instead */}
-        <Stack.Screen 
-          name="ProductListScreen" 
-          component={require('../screens/admin/ProductListScreen').default} 
-          options={{ title: 'All Products' }}
-        />
-        <Stack.Screen 
-          name="TransactionListScreen" 
-          component={require('../screens/admin/TransactionListScreen').default} 
-          options={{ title: 'All Transactions' }}
-        />
-        <Stack.Screen 
-          name="ProfileScreen" 
-          component={require('../screens/admin/ProfileScreen').default} 
-          options={{ title: 'Admin Profile' }}
-        />
-      </Stack.Navigator>
+    // Additional screens for admins that aren't in the bottom tabs
+    const adminAdditionalScreens = [
+      {
+        name: 'ProductListScreen',
+        component: require('../screens/admin/ProductListScreen').default,
+        options: { title: 'All Products' }
+      }
+    ];
+
+    return createMainNavigator(
+      AdminBottomTabs,
+      {
+        headerStyle: { backgroundColor: '#f0fff0' },
+        headerTintColor: '#333'
+      },
+      adminAdditionalScreens
     );
   }
   

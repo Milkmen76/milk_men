@@ -168,7 +168,7 @@ const ProductManagementScreen = () => {
       
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{item.name}</Text>
-        <Text style={styles.productPrice}>${parseFloat(item.price).toFixed(2)}</Text>
+        <Text style={styles.productPrice}>₹{parseFloat(item.price).toFixed(2)}</Text>
       </View>
       
       <View style={styles.productActions}>
@@ -248,7 +248,7 @@ const ProductManagementScreen = () => {
                 placeholder="Enter product name"
               />
               
-              <Text style={styles.inputLabel}>Price ($)</Text>
+              <Text style={styles.inputLabel}>Price (₹)</Text>
               <TextInput
                 style={styles.textInput}
                 value={productPrice}

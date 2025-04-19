@@ -117,41 +117,47 @@ const ProductListScreen = () => {
     });
   };
 
-  const renderProductItem = ({ item }) => (
-    <View style={styles.productCard}>
-      <View style={styles.productImageContainer}>
-        <Image 
-          source={imageMap[item.image] || require('../../assets/milk-icon.png')}
-          style={styles.productImage}
-          resizeMode="contain"
-        />
-      </View>
-      <View style={styles.productInfo}>
-        <Text style={styles.productName}>{item.name}</Text>
-        <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
-        
-        <View style={styles.quantityControls}>
-          <TouchableOpacity 
-            style={styles.quantityButton}
-            onPress={() => handleRemoveFromCart(item)}
-          >
-            <Text style={styles.quantityButtonText}>-</Text>
-          </TouchableOpacity>
+  const renderProductItem = ({ item }) => {
+    const quantity = selectedProducts[item.product_id] || 0;
+    const isInCart = quantity > 0;
+    
+    return (
+      <View style={styles.productCard}>
+        <View style={styles.productImageContainer}>
+          <Image 
+            source={imageMap[item.image] || require('../../assets/milk-icon.png')}
+            style={styles.productImage}
+            resizeMode="contain"
+          />
+        </View>
+        <View style={styles.productInfo}>
+          <Text style={styles.productName}>{item.name}</Text>
+          <Text style={styles.productPrice}>₹{item.price.toFixed(2)}</Text>
           
-          <Text style={styles.quantityText}>
-            {selectedProducts[item.product_id] || 0}
-          </Text>
-          
-          <TouchableOpacity 
-            style={styles.quantityButton}
-            onPress={() => handleAddToCart(item)}
-          >
-            <Text style={styles.quantityButtonText}>+</Text>
-          </TouchableOpacity>
+          <View style={styles.quantityControls}>
+            <TouchableOpacity 
+              style={[styles.quantityButton, styles.removeButton, !isInCart && styles.disabledButton]}
+              onPress={() => handleRemoveFromCart(item)}
+              disabled={!isInCart}
+            >
+              <Text style={styles.quantityButtonText}>-</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.quantityContainer}>
+              <Text style={styles.quantityText}>{quantity}</Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.quantityButton, styles.addButton]}
+              onPress={() => handleAddToCart(item)}
+            >
+              <Text style={styles.quantityButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -197,7 +203,7 @@ const ProductListScreen = () => {
             <Text style={styles.cartText}>
               {getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'}
             </Text>
-            <Text style={styles.cartPrice}>${getTotalPrice().toFixed(2)}</Text>
+            <Text style={styles.cartPrice}>₹{getTotalPrice().toFixed(2)}</Text>
           </View>
           <TouchableOpacity
             style={styles.orderButton}
@@ -214,76 +220,78 @@ const ProductListScreen = () => {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f5f7fa',
     padding: 16 
   },
   vendorHeader: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    shadowRadius: 8,
+    elevation: 3
   },
   vendorName: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4
+    marginBottom: 6
   },
   vendorAddress: {
     fontSize: 14,
     color: '#666'
   },
   headerTitle: { 
-    fontSize: 18, 
+    fontSize: 20, 
     fontWeight: 'bold',
     marginBottom: 16,
-    color: '#333'
+    color: '#333',
+    marginLeft: 4
   },
   listContent: {
     paddingBottom: 100
   },
   productCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     flexDirection: 'row',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    shadowRadius: 8,
+    elevation: 3
   },
   productImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
+    width: 100,
+    height: 100,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#f0f8ff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12
+    marginRight: 16
   },
   productImage: {
-    width: 60,
-    height: 60
+    width: 70,
+    height: 70
   },
   productInfo: {
-    flex: 1
+    flex: 1,
+    justifyContent: 'space-between'
   },
   productName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 6,
     color: '#333'
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 20,
     color: '#4e9af1',
     fontWeight: 'bold',
     marginBottom: 12
@@ -293,21 +301,32 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   quantityButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#4e9af1',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center'
   },
+  addButton: {
+    backgroundColor: '#4e9af1',
+  },
+  removeButton: {
+    backgroundColor: '#4e9af1',
+  },
+  disabledButton: {
+    backgroundColor: '#c5d7f0',
+  },
   quantityButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold'
   },
+  quantityContainer: {
+    width: 40,
+    alignItems: 'center',
+  },
   quantityText: {
-    marginHorizontal: 15,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333'
   },
@@ -315,7 +334,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f5f7fa'
   },
   loadingText: {
     marginTop: 10,
@@ -339,17 +358,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#fff',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
+    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 5
+    shadowRadius: 8,
+    elevation: 8
   },
   cartInfo: {
     flex: 1
@@ -359,15 +378,15 @@ const styles = StyleSheet.create({
     color: '#666'
   },
   cartPrice: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333'
   },
   orderButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12
   },
   orderButtonText: {
     color: '#fff',

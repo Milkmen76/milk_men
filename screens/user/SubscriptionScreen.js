@@ -275,7 +275,7 @@ const SubscriptionScreen = () => {
               <View style={styles.optionHeader}>
                 <Text style={styles.optionLabel}>{type.label}</Text>
                 <Text style={styles.optionPrice}>
-                  ${calculateSubscriptionPrice(type.value)}
+                  ₹{calculateSubscriptionPrice(type.value)}
                 </Text>
               </View>
               <Text style={styles.optionDescription}>{type.description}</Text>
@@ -381,7 +381,7 @@ const SubscriptionScreen = () => {
           <View style={styles.summaryRow}>
             <Text style={styles.totalLabel}>Total Amount</Text>
             <Text style={styles.totalValue}>
-              ${calculateSubscriptionPrice(selectedType)}
+              ₹{calculateSubscriptionPrice(selectedType)}
             </Text>
           </View>
         </View>

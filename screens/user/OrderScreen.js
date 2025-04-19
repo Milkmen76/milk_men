@@ -92,9 +92,9 @@ const OrderScreen = () => {
     <View style={styles.orderItem}>
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{item.name}</Text>
-        <Text style={styles.productPrice}>${item.price.toFixed(2)} x {item.quantity}</Text>
+        <Text style={styles.productPrice}>₹{item.price.toFixed(2)} x {item.quantity}</Text>
       </View>
-      <Text style={styles.itemTotal}>${(item.price * item.quantity).toFixed(2)}</Text>
+      <Text style={styles.itemTotal}>₹{(item.price * item.quantity).toFixed(2)}</Text>
     </View>
   );
 
@@ -142,8 +142,12 @@ const OrderScreen = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Order Total</Text>
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Subtotal</Text>
-          <Text style={styles.totalValue}>${totalPrice.toFixed(2)}</Text>
+          <Text style={styles.totalLabel}>Subtotal:</Text>
+          {products.length > 0 ? (
+            <Text style={styles.totalValue}>₹{totalPrice.toFixed(2)}</Text>
+          ) : (
+            <Text style={styles.totalValue}>₹0.00</Text>
+          )}
         </View>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Delivery Fee</Text>
@@ -151,8 +155,8 @@ const OrderScreen = () => {
         </View>
         <View style={styles.divider} />
         <View style={styles.totalRow}>
-          <Text style={styles.grandTotalLabel}>Total</Text>
-          <Text style={styles.grandTotalValue}>${totalPrice.toFixed(2)}</Text>
+          <Text style={styles.totalLabel}>Grand Total:</Text>
+          <Text style={styles.grandTotalValue}>₹{totalPrice.toFixed(2)}</Text>
         </View>
       </View>
       

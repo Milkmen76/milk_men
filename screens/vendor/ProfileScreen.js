@@ -307,7 +307,7 @@ const ProfileScreen = () => {
             </View>
             
             <View style={styles.statCard}>
-              <Text style={styles.statNumber}>${businessStats.revenue.toFixed(2)}</Text>
+              <Text style={styles.statNumber}>₹{businessStats.revenue.toFixed(2)}</Text>
               <Text style={styles.statLabel}>Revenue</Text>
             </View>
           </View>

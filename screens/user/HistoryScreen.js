@@ -22,8 +22,8 @@ const HistoryScreen = () => {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
-  const [activeTab, setActiveTab] = useState(initialTab); // Use initialTab from route params
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'delivered', 'cancelled', etc.
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [statusFilter, setStatusFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
   const [vendorMap, setVendorMap] = useState({});
 
@@ -84,17 +84,17 @@ const HistoryScreen = () => {
     switch (status?.toLowerCase()) {
       case 'delivered':
       case 'completed':
-        return '#5cb85c'; // green
+        return '#4CAF50'; // green
       case 'out for delivery':
-        return '#5bc0de'; // blue
+        return '#2196F3'; // blue
       case 'delayed':
-        return '#f0ad4e'; // orange
+        return '#FF9800'; // orange
       case 'cancelled':
       case 'canceled':
-        return '#d9534f'; // red
+        return '#F44336'; // red
       case 'pending':
       default:
-        return '#777'; // gray
+        return '#9E9E9E'; // gray
     }
   };
 
@@ -104,43 +104,40 @@ const HistoryScreen = () => {
     const vendorName = vendorInfo?.profile_info?.business_name || 'Vendor';
 
     return (
-      <View style={styles.historyCard}>
+      <TouchableOpacity 
+        style={styles.historyCard}
+        onPress={() => {
+          alert(`Order ID: ${item.order_id}\nStatus: ${item.status}\nVendor: ${vendorName}`);
+        }}
+      >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>
-            Order from {vendorName}
-          </Text>
+          <View style={styles.vendorContainer}>
+            <Text style={styles.cardTitle}>
+              {vendorName}
+            </Text>
+            <Text style={styles.cardDate}>
+              {item.created_at ? formatDate(item.created_at) : formatDate(item.date)}
+            </Text>
+          </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
             <Text style={styles.statusText}>{item.status || 'Pending'}</Text>
           </View>
         </View>
         
-        <Text style={styles.cardDate}>
-          Ordered on {item.created_at ? formatDate(item.created_at) : formatDate(item.date)}
-        </Text>
+        <View style={styles.divider} />
         
-        {item.total && (
-          <Text style={styles.cardTotal}>Total: ${parseFloat(item.total).toFixed(2)}</Text>
-        )}
-
-        {item.products && (
-          <Text style={styles.productsText}>
-            {Array.isArray(item.products) ? `${item.products.length} items` : 'Items not available'}
-          </Text>
-        )}
-        
-        <View style={styles.cardFooter}>
-          <TouchableOpacity 
-            style={styles.detailsButton}
-            onPress={() => {
-              // In a real app, navigate to order details
-              // navigation.navigate('OrderDetails', { orderId: item.order_id });
-              alert(`Order ID: ${item.order_id}\nStatus: ${item.status}\nVendor: ${vendorName}`);
-            }}
-          >
-            <Text style={styles.detailsButtonText}>View Details</Text>
-          </TouchableOpacity>
+        <View style={styles.cardContent}>
+          {item.products && (
+            <Text style={styles.productsText}>
+              {Array.isArray(item.products) ? `${item.products.length} items` : 'Items not available'}
+            </Text>
+          )}
+          
+          {item.total && (
+            <Text style={styles.cardTotal}>₹{parseFloat(item.total).toFixed(2)}</Text>
+          )}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -162,11 +159,21 @@ const HistoryScreen = () => {
     const statusText = item.status || (isActive() ? 'Active' : 'Expired');
     
     return (
-      <View style={styles.historyCard}>
+      <TouchableOpacity 
+        style={styles.historyCard}
+        onPress={() => {
+          alert(`Subscription ID: ${item.subscription_id}\nStatus: ${statusText}\nVendor: ${vendorName}`);
+        }}
+      >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>
-            Subscription with {vendorName}
-          </Text>
+          <View style={styles.vendorContainer}>
+            <Text style={styles.cardTitle}>
+              {vendorName}
+            </Text>
+            <Text style={styles.subscriptionType}>
+              {item.type?.charAt(0).toUpperCase() + item.type?.slice(1) || 'Regular'} Delivery
+            </Text>
+          </View>
           <View style={[
             styles.statusBadge, 
             { backgroundColor: getStatusColor(statusText) }
@@ -175,34 +182,19 @@ const HistoryScreen = () => {
           </View>
         </View>
         
-        <Text style={styles.cardType}>
-          {item.type?.charAt(0).toUpperCase() + item.type?.slice(1) || 'Regular'} Delivery
-        </Text>
+        <View style={styles.divider} />
         
         <View style={styles.dateRange}>
           <View style={styles.dateItem}>
-            <Text style={styles.dateLabel}>Start Date</Text>
+            <Text style={styles.dateLabel}>Starts</Text>
             <Text style={styles.dateValue}>{formatDate(item.start_date)}</Text>
           </View>
           <View style={styles.dateItem}>
-            <Text style={styles.dateLabel}>End Date</Text>
+            <Text style={styles.dateLabel}>Ends</Text>
             <Text style={styles.dateValue}>{formatDate(item.end_date)}</Text>
           </View>
         </View>
-        
-        <View style={styles.cardFooter}>
-          <TouchableOpacity 
-            style={styles.detailsButton}
-            onPress={() => {
-              // In a real app, navigate to subscription details
-              // navigation.navigate('SubscriptionDetails', { subscriptionId: item.subscription_id });
-              alert(`Subscription ID: ${item.subscription_id}\nStatus: ${statusText}\nVendor: ${vendorName}`);
-            }}
-          >
-            <Text style={styles.detailsButtonText}>View Details</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -229,6 +221,7 @@ const HistoryScreen = () => {
         horizontal 
         showsHorizontalScrollIndicator={false}
         style={styles.filtersContainer}
+        contentContainerStyle={styles.filtersContent}
       >
         {statusOptions.map(option => (
           <TouchableOpacity
@@ -355,13 +348,13 @@ const HistoryScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f5f7fa',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f5f7fa'
   },
   loadingText: {
     marginTop: 12,
@@ -373,9 +366,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 3,
   },
   tabButton: {
     flex: 1,
@@ -390,7 +383,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#666'
   },
   activeTabText: {
@@ -400,17 +393,18 @@ const styles = StyleSheet.create({
   filtersContainer: {
     backgroundColor: '#fff',
     paddingVertical: 12,
-    paddingHorizontal: 8,
-    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 1,
     elevation: 1,
   },
+  filtersContent: {
+    paddingHorizontal: 12
+  },
   filterButton: {
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     borderRadius: 20,
     marginHorizontal: 4,
     backgroundColor: '#f0f0f0'
@@ -420,47 +414,60 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     fontSize: 14,
-    color: '#666'
+    color: '#666',
+    fontWeight: '500'
   },
   activeFilterText: {
     color: '#fff',
-    fontWeight: '500'
+    fontWeight: '600'
   },
   contentContainer: {
     flex: 1,
   },
   listContent: {
     padding: 12,
-    paddingBottom: 20
+    paddingBottom: 32
   },
   historyCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12
   },
+  vendorContainer: {
+    flex: 1,
+  },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    flex: 1
+    marginBottom: 2
+  },
+  cardDate: {
+    fontSize: 14,
+    color: '#888',
+  },
+  subscriptionType: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2
   },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
-    backgroundColor: '#999'
+    marginLeft: 8
   },
   statusText: {
     color: '#fff',
@@ -468,59 +475,44 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textTransform: 'uppercase'
   },
-  cardDate: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8
+  divider: {
+    height: 1,
+    backgroundColor: '#eee',
+    marginVertical: 12
   },
-  cardTotal: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4e9af1',
-    marginBottom: 12
+  cardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   productsText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12
-  },
-  cardType: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 12
+    color: '#666',
+  },
+  cardTotal: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#4e9af1',
   },
   dateRange: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16
   },
   dateItem: {
-    flex: 1
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    padding: 10,
+    borderRadius: 8,
+    marginHorizontal: 4
   },
   dateLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#888',
     marginBottom: 4
   },
   dateValue: {
     fontSize: 14,
     color: '#333',
-    fontWeight: '500'
-  },
-  cardFooter: {
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 12
-  },
-  detailsButton: {
-    backgroundColor: '#f0f8ff',
-    paddingVertical: 10,
-    borderRadius: 6,
-    alignItems: 'center'
-  },
-  detailsButtonText: {
-    color: '#4e9af1',
     fontWeight: '600'
   },
   emptyContainer: {

@@ -377,7 +377,7 @@ const OrderManagementScreen = () => {
           {item.total && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Total:</Text>
-              <Text style={styles.detailValue}>${parseFloat(item.total).toFixed(2)}</Text>
+              <Text style={styles.detailValue}>₹{parseFloat(item.total).toFixed(2)}</Text>
             </View>
           )}
         </View>

@@ -174,7 +174,7 @@ const TransactionListScreen = () => {
           {item.type === 'transaction' && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Amount:</Text>
-              <Text style={styles.amountText}>${parseFloat(item.amount).toFixed(2)}</Text>
+              <Text style={styles.amountText}>₹{parseFloat(item.amount).toFixed(2)}</Text>
             </View>
           )}
           

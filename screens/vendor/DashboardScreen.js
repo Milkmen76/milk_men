@@ -85,7 +85,7 @@ const DashboardScreen = () => {
           </View>
         </View>
         <Text style={styles.orderDate}>Placed on: {orderDate}</Text>
-        {item.total && <Text style={styles.orderAmount}>Amount: ${parseFloat(item.total).toFixed(2)}</Text>}
+        {item.total && <Text style={styles.orderAmount}>Amount: ₹{parseFloat(item.total).toFixed(2)}</Text>}
         
         <View style={styles.orderActions}>
           <TouchableOpacity 
@@ -159,7 +159,7 @@ const DashboardScreen = () => {
         </View>
         
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>${stats.revenue.toFixed(2)}</Text>
+          <Text style={styles.statValue}>₹{stats.revenue.toFixed(2)}</Text>
           <Text style={styles.statLabel}>Revenue</Text>
         </View>
       </View>

@@ -1,363 +1,456 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, StatusBar, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  RefreshControl,
+  ActivityIndicator,
+  ScrollView,
+  Dimensions
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
-import * as localData from '../../services/localData';
+import { firebase } from '../../firebase/config';
+import { format } from 'date-fns';
+
+const windowWidth = Dimensions.get('window').width;
 
 const HomeScreen = () => {
+  const { user } = useAuth();
   const navigation = useNavigation();
-  const { user, logout } = useAuth();
   const [vendors, setVendors] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [orderCount, setOrderCount] = useState(0);
-  const [subscriptionCount, setSubscriptionCount] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch all users, then filter for approved vendors
-        const allUsers = await localData.getUsers();
-        const approvedVendors = allUsers.filter(
-          u => u.role === 'vendor' && u.approval_status === 'approved'
-        );
-        setVendors(approvedVendors);
-        
-        // Fetch user's order count
-        if (user) {
-          const userOrders = await localData.getOrdersByUser(user.id);
-          setOrderCount(userOrders.length);
-          
-          // Fetch user's subscription count
-          const userSubscriptions = await localData.getSubscriptionsByUser(user.id);
-          setSubscriptionCount(userSubscriptions.length);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [user]);
-
-  const handleLogout = async () => {
-    await logout();
+  const fetchVendors = async () => {
+    try {
+      const vendorsRef = firebase.firestore().collection('vendors').where('approved', '==', true);
+      const snapshot = await vendorsRef.get();
+      
+      const vendorsList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setVendors(vendorsList);
+    } catch (error) {
+      console.error('Error fetching vendors: ', error);
+    }
   };
 
-  const renderVendorItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.vendorCard}
-      onPress={() => navigation.navigate('ProductList', { vendorId: item.id })}
-    >
-      <View style={styles.vendorInfo}>
-        <Text style={styles.vendorName}>{item.profile_info?.business_name || 'Vendor'}</Text>
-        <Text style={styles.vendorAddress}>{item.profile_info?.address || 'No address provided'}</Text>
-        <TouchableOpacity 
-          style={styles.viewButton}
-          onPress={() => navigation.navigate('ProductList', { vendorId: item.id })}
-        >
-          <Text style={styles.viewButtonText}>View Products</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+  const fetchSubscriptions = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      const now = firebase.firestore.Timestamp.now();
+      
+      const subscriptionsRef = firebase.firestore()
+        .collection('subscriptions')
+        .where('userId', '==', user.uid)
+        .where('endDate', '>=', now);
+        
+      const snapshot = await subscriptionsRef.get();
+      
+      if (snapshot.empty) {
+        setSubscriptions([]);
+        return;
+      }
+      
+      // Get subscription documents
+      let subscriptionsList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Fetch vendor details for each subscription
+      const vendorPromises = subscriptionsList.map(async (subscription) => {
+        const vendorDoc = await firebase.firestore().collection('vendors').doc(subscription.vendorId).get();
+        return vendorDoc.exists ? { id: vendorDoc.id, ...vendorDoc.data() } : null;
+      });
+      
+      const vendorDetails = await Promise.all(vendorPromises);
+      
+      // Attach vendor details to subscriptions
+      subscriptionsList = subscriptionsList.map((subscription, index) => ({
+        ...subscription,
+        vendor: vendorDetails[index]
+      })).filter(sub => sub.vendor !== null);
+      
+      setSubscriptions(subscriptionsList);
+    } catch (error) {
+      console.error('Error fetching subscriptions: ', error);
+    }
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    await Promise.all([fetchVendors(), fetchSubscriptions()]);
+    setLoading(false);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [user])
   );
 
-  return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <StatusBar backgroundColor="#f0f8ff" barStyle="dark-content" />
-      
-      <View style={styles.header}>
+  const navigateToVendorProducts = (vendorId, vendorName) => {
+    navigation.navigate('ProductListScreen', { vendorId, vendorName });
+  };
+
+  const navigateToSubscriptionDetails = (subscription) => {
+    navigation.navigate('SubscriptionDetailScreen', { subscription });
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate();
+    return format(date, 'MMM dd, yyyy');
+  };
+
+  const renderSubscriptionItem = ({ item }) => {
+    if (!item.vendor) return null;
+    
+    return (
+      <TouchableOpacity
+        style={styles.subscriptionCard}
+        onPress={() => navigateToSubscriptionDetails(item)}
+      >
+        <View style={styles.subscriptionHeader}>
+          <Image 
+            source={{ uri: item.vendor.logo || 'https://via.placeholder.com/100' }} 
+            style={styles.subscriptionVendorLogo} 
+          />
+          <View style={styles.subscriptionInfo}>
+            <Text style={styles.subscriptionVendorName}>{item.vendor.businessName}</Text>
+            <Text style={styles.subscriptionPlan}>{item.planName}</Text>
+            <View style={styles.dateContainer}>
+              <Text style={styles.dateLabel}>Valid until:</Text>
+              <Text style={styles.dateValue}>{formatDate(item.endDate)}</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.nextDeliveryContainer}>
+          <Text style={styles.nextDeliveryLabel}>Next Delivery:</Text>
+          <Text style={styles.nextDeliveryDate}>{item.nextDelivery ? formatDate(item.nextDelivery) : 'Not scheduled'}</Text>
+          <View style={styles.deliveryStatus}>
+            <Text style={styles.deliveryStatusText}>Active</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderVendorItem = ({ item }) => {
+    return (
+      <TouchableOpacity
+        style={styles.vendorCard}
+        onPress={() => navigateToVendorProducts(item.id, item.businessName)}
+      >
         <Image 
-          source={require('../../assets/milk-icon.png')} 
-          style={styles.logo} 
-          resizeMode="contain"
+          source={{ uri: item.logo || 'https://via.placeholder.com/100' }} 
+          style={styles.vendorLogo} 
         />
-        <View>
-          <Text style={styles.welcomeText}>Welcome,</Text>
-          <Text style={styles.userName}>{user?.name || 'User'}</Text>
+        <Text style={styles.vendorName}>{item.businessName}</Text>
+        <Text style={styles.vendorDescription} numberOfLines={2}>
+          {item.description || 'Fresh dairy products'}
+        </Text>
+        <View style={styles.vendorRating}>
+          <Text style={styles.ratingText}>★ {(item.rating || 4.5).toFixed(1)}</Text>
         </View>
-      </View>
-
-      {/* Order Statistics Card */}
-      <View style={styles.statsCard}>
-        <Text style={styles.statsTitle}>My Orders</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{orderCount}</Text>
-            <Text style={styles.statLabel}>Orders</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{subscriptionCount}</Text>
-            <Text style={styles.statLabel}>Subscriptions</Text>
-          </View>
+        <View style={styles.browseButton}>
+          <Text style={styles.browseButtonText}>Browse Products</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.viewAllButton}
-          onPress={() => navigation.navigate('HistoryScreen')}
-        >
-          <Text style={styles.viewAllText}>View All Orders and Subscriptions</Text>
-        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4e9af1" />
       </View>
+    );
+  }
 
-      <View style={styles.menuContainer}>
-        <View style={styles.menuRow}>
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('VendorList')}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#e6f2ff' }]}>
-              <Text style={styles.iconText}>🏪</Text>
-            </View>
-            <Text style={styles.menuText}>Milk Vendors</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('HistoryScreen', { initialTab: 'orders' })}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#fff0e6' }]}>
-              <Text style={styles.iconText}>📋</Text>
-            </View>
-            <Text style={styles.menuText}>Orders</Text>
-          </TouchableOpacity>
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.headerContainer}>
+          <Text style={styles.greeting}>Hello, {user?.displayName || 'there'}!</Text>
+          <Text style={styles.subtitle}>Your dairy deliveries in one place</Text>
         </View>
-
-        <View style={styles.menuRow}>
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('HistoryScreen', { initialTab: 'subscriptions' })}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#e6ffe6' }]}>
-              <Text style={styles.iconText}>🔄</Text>
+        
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Your Active Subscriptions</Text>
+          {subscriptions.length > 0 ? (
+            <FlatList
+              data={subscriptions}
+              renderItem={renderSubscriptionItem}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.subscriptionsList}
+            />
+          ) : (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateText}>You don't have any active subscriptions.</Text>
+              <TouchableOpacity style={styles.exploreButton}>
+                <Text style={styles.exploreButtonText}>Explore Vendors</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.menuText}>Subscriptions</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('ProfileScreen')}
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#e6e6ff' }]}>
-              <Text style={styles.iconText}>👤</Text>
-            </View>
-            <Text style={styles.menuText}>Profile</Text>
-          </TouchableOpacity>
+          )}
         </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>Featured Vendors</Text>
-      
-      {loading ? (
-        <Text style={styles.loadingText}>Loading vendors...</Text>
-      ) : vendors.length > 0 ? (
-        <FlatList
-          data={vendors}
-          renderItem={renderVendorItem}
-          keyExtractor={item => item.id}
-          style={styles.vendorList}
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={false}
-          nestedScrollEnabled={true}
-        />
-      ) : (
-        <Text style={styles.noDataText}>No vendors available at the moment</Text>
-      )}
-      
-      <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Text style={styles.logoutText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Popular Vendors</Text>
+          {vendors.length > 0 ? (
+            <FlatList
+              data={vendors}
+              renderItem={renderVendorItem}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.vendorsList}
+            />
+          ) : (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateText}>No vendors available at the moment.</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    padding: 16,
-    backgroundColor: '#f9f9f9' 
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFD',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    paddingTop: 10
-  },
-  logo: {
-    width: 50,
-    height: 50,
-    marginRight: 12
-  },
-  welcomeText: {
-    fontSize: 16,
-    color: '#666'
-  },
-  userName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333'
-  },
-  statsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16
-  },
-  statItem: {
-    alignItems: 'center'
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#4e9af1',
-    marginBottom: 4
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#666'
-  },
-  viewAllButton: {
-    backgroundColor: '#f0f8ff',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center'
-  },
-  viewAllText: {
-    color: '#4e9af1',
-    fontWeight: '600',
-    fontSize: 14
-  },
-  menuContainer: {
-    marginBottom: 24
-  },
-  menuRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16
-  },
-  menuItem: {
-    width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
-  },
-  iconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10
+    backgroundColor: '#F8FAFD',
   },
-  iconText: {
-    fontSize: 24
+  headerContainer: {
+    padding: 20,
+    paddingBottom: 15,
   },
-  menuText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#444'
+  greeting: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '400',
+  },
+  section: {
+    marginVertical: 10,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
     marginBottom: 12,
-    color: '#333'
   },
-  vendorList: {
-    flex: 1
+  subscriptionsList: {
+    paddingVertical: 8,
+  },
+  subscriptionCard: {
+    width: windowWidth * 0.85,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  subscriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  subscriptionVendorLogo: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f0f0f0',
+  },
+  subscriptionInfo: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  subscriptionVendorName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  subscriptionPlan: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#4e9af1',
+    marginBottom: 6,
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateLabel: {
+    fontSize: 13,
+    color: '#666',
+    marginRight: 4,
+  },
+  dateValue: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#333',
+  },
+  nextDeliveryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  nextDeliveryLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  nextDeliveryDate: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  deliveryStatus: {
+    backgroundColor: '#e6f3e6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  deliveryStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2e7d32',
+  },
+  vendorsList: {
+    paddingVertical: 8,
   },
   vendorCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    width: 180,
+    backgroundColor: 'white',
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
+    marginRight: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    shadowRadius: 8,
+    elevation: 5,
+    alignItems: 'center',
   },
-  vendorInfo: {
-    flex: 1
+  vendorLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f0f0f0',
+    marginBottom: 12,
   },
   vendorName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#333'
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 6,
   },
-  vendorAddress: {
-    fontSize: 14,
+  vendorDescription: {
+    fontSize: 13,
     color: '#666',
-    marginBottom: 10
+    textAlign: 'center',
+    marginBottom: 10,
+    height: 36,
   },
-  viewButton: {
+  vendorRating: {
+    backgroundColor: '#fff8e1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ff8f00',
+  },
+  browseButton: {
     backgroundColor: '#4e9af1',
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignSelf: 'flex-start'
+    borderRadius: 20,
+    width: '100%',
+    alignItems: 'center',
   },
-  viewButtonText: {
-    color: '#fff',
-    fontWeight: '500',
-    fontSize: 12
+  browseButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 13,
   },
-  loadingText: {
-    textAlign: 'center',
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
     padding: 20,
-    color: '#666'
+    borderRadius: 16,
+    marginVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  noDataText: {
-    textAlign: 'center',
-    padding: 20,
+  emptyStateText: {
+    fontSize: 15,
     color: '#666',
-    marginBottom: 20
+    textAlign: 'center',
+    marginBottom: 16,
   },
-  footer: {
-    marginTop: 10,
-    marginBottom: 30,
-    alignItems: 'center'
-  },
-  logoutButton: {
-    paddingVertical: 12,
+  exploreButton: {
+    backgroundColor: '#4e9af1',
     paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: '#f2f2f2',
-    borderWidth: 1,
-    borderColor: '#ddd'
+    paddingVertical: 10,
+    borderRadius: 25,
   },
-  logoutText: {
-    color: '#d9534f',
-    fontWeight: '500'
-  }
+  exploreButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
 });
 
 export default HomeScreen;
