@@ -16,7 +16,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
-import { launchImageLibrary } from 'react-native-image-picker';
+import * as ImagePicker from 'expo-image-picker';
 
 // Image mapping for predefined product images
 const imageOptions = [
@@ -67,30 +67,41 @@ const ProductManagementScreen = () => {
     }
   };
 
-  const selectProductImage = () => {
-    const options = {
-      mediaType: 'photo',
-      includeBase64: true,
-      maxHeight: 800,
-      maxWidth: 800,
-      quality: 0.7,
-    };
-
-    launchImageLibrary(options, (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled image picker');
-      } else if (response.errorCode) {
-        console.log('ImagePicker Error: ', response.errorMessage);
-        Alert.alert('Error', 'An error occurred while selecting the image');
-      } else if (response.assets && response.assets.length > 0) {
-        const source = { uri: response.assets[0].uri };
+  const selectProductImage = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'You need to grant permission to access your photos');
+        return;
+      }
+      
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+        base64: true,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const source = { uri: result.assets[0].uri };
         console.log('Image selected successfully. URI:', source.uri);
-        console.log('Base64 data length:', response.assets[0].base64 ? response.assets[0].base64.length : 'No data');
+        
+        // Get base64 data
+        const base64 = result.assets[0].base64;
+        console.log('Base64 data length:', base64 ? base64.length : 'No data');
+        
         setLocalImageUri(source.uri);
-        setProductImageBase64(response.assets[0].base64);
+        setProductImageBase64(base64);
         setProductImage(`custom_${Date.now()}.jpg`);
       }
-    });
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
   };
 
   const handleAddProduct = () => {
@@ -201,10 +212,18 @@ const ProductManagementScreen = () => {
   };
 
   const getProductImage = (item) => {
+    // Use local image URI if available (for newly selected image)
+    if (editingProduct && editingProduct.product_id === item.product_id && localImageUri) {
+      return { uri: localImageUri };
+    }
+    
+    // Use base64 image if available
     if (item.image_base64) {
       return { uri: `data:image/jpeg;base64,${item.image_base64}` };
     }
-    return imageMap[item.image] || require('../../assets/milk-icon.png');
+    
+    // Fall back to predefined image
+    return imageMap[item.image] || imageMap['milk1.jpg'];
   };
 
   const renderProductItem = ({ item }) => (
@@ -236,6 +255,93 @@ const ProductManagementScreen = () => {
         </TouchableOpacity>
       </View>
     </View>
+  );
+
+  const renderProductForm = () => (
+    <ScrollView style={styles.formScrollView}>
+      <View style={styles.formGroup}>
+        <Text style={styles.formLabel}>Product Name*</Text>
+        <TextInput
+          style={styles.input}
+          value={productName}
+          onChangeText={setProductName}
+          placeholder="Enter product name"
+          placeholderTextColor="#aaa"
+        />
+      </View>
+      
+      <View style={styles.formGroup}>
+        <Text style={styles.formLabel}>Price (₹)*</Text>
+        <TextInput
+          style={styles.input}
+          value={productPrice}
+          onChangeText={setProductPrice}
+          placeholder="Enter price"
+          placeholderTextColor="#aaa"
+          keyboardType="decimal-pad"
+        />
+      </View>
+      
+      <View style={styles.formGroup}>
+        <Text style={styles.formLabel}>Product Image</Text>
+        
+        <View style={styles.imageUploadContainer}>
+          <View style={styles.currentImageContainer}>
+            {localImageUri ? (
+              <Image 
+                source={{ uri: localImageUri }}
+                style={styles.currentProductImage}
+                resizeMode="contain"
+              />
+            ) : productImageBase64 ? (
+              <Image 
+                source={{ uri: `data:image/jpeg;base64,${productImageBase64}` }}
+                style={styles.currentProductImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <Image 
+                source={imageMap[productImage]}
+                style={styles.currentProductImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+          
+          <TouchableOpacity
+            style={styles.uploadImageButton}
+            onPress={selectProductImage}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.uploadImageButtonText}>
+              {localImageUri || productImageBase64 ? 'Change Image' : 'Upload Image'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      <View style={styles.formActions}>
+        <TouchableOpacity
+          style={[styles.button, styles.cancelButton]}
+          onPress={() => setModalVisible(false)}
+          disabled={savingProduct}
+        >
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.button, styles.saveButton, savingProduct && styles.disabledButton]}
+          onPress={handleSaveProduct}
+          disabled={savingProduct}
+        >
+          {savingProduct ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Product</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 
   if (loading) {
@@ -290,80 +396,7 @@ const ProductManagementScreen = () => {
               {editingProduct ? 'Edit Product' : 'Add New Product'}
             </Text>
             
-            <ScrollView style={styles.formContainer}>
-              <Text style={styles.inputLabel}>Product Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={productName}
-                onChangeText={setProductName}
-                placeholder="Enter product name"
-              />
-              
-              <Text style={styles.inputLabel}>Price (₹)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={productPrice}
-                onChangeText={setProductPrice}
-                placeholder="Enter price"
-                keyboardType="numeric"
-              />
-              
-              <Text style={styles.inputLabel}>Product Image</Text>
-              <View style={styles.imagePickerContainer}>
-                <TouchableOpacity 
-                  style={styles.imagePreview}
-                  onPress={selectProductImage}
-                >
-                  {localImageUri ? (
-                    <Image 
-                      source={{ uri: localImageUri }}
-                      style={styles.previewImage}
-                      resizeMode="contain"
-                    />
-                  ) : productImageBase64 ? (
-                    <Image 
-                      source={{ uri: `data:image/jpeg;base64,${productImageBase64}` }}
-                      style={styles.previewImage}
-                      resizeMode="contain"
-                    />
-                  ) : (
-                    <Image 
-                      source={imageMap[productImage] || require('../../assets/milk-icon.png')}
-                      style={styles.previewImage}
-                      resizeMode="contain"
-                    />
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.selectImageButton}
-                  onPress={selectProductImage}
-                >
-                  <Text style={styles.selectImageText}>Select Image</Text>
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity 
-                  style={styles.cancelButton}
-                  onPress={() => setModalVisible(false)}
-                  disabled={savingProduct}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.saveButton}
-                  onPress={handleSaveProduct}
-                  disabled={savingProduct}
-                >
-                  {savingProduct ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            {renderProductForm()}
           </View>
         </View>
       </Modal>
@@ -530,15 +563,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  formContainer: {
+  formScrollView: {
     marginBottom: 20,
   },
-  inputLabel: {
+  formGroup: {
+    marginBottom: 16,
+  },
+  formLabel: {
     fontSize: 14,
     color: '#666',
     marginBottom: 6,
   },
-  textInput: {
+  input: {
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -546,62 +582,67 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
   },
-  imagePickerContainer: {
-    flexDirection: 'row',
+  imageUploadContainer: {
+    flexDirection: 'column',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  imagePreview: {
-    width: 80,
-    height: 80,
+  currentImageContainer: {
+    width: 150,
+    height: 150,
     borderRadius: 8,
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
     overflow: 'hidden',
   },
-  previewImage: {
-    width: '100%',
-    height: '100%',
+  currentProductImage: {
+    width: 140,
+    height: 140,
   },
-  selectImageButton: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  uploadImageButton: {
+    backgroundColor: '#4e9af1',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 200,
   },
-  selectImageText: {
-    color: '#2196f3',
-    fontWeight: '500',
+  uploadImageButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  buttonContainer: {
+  formActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
+  button: {
     paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
-    marginRight: 10,
-    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
   },
   cancelButtonText: {
     color: '#666',
     fontWeight: '500',
   },
   saveButton: {
-    flex: 1,
     backgroundColor: '#4e9af1',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginLeft: 10,
-    alignItems: 'center',
   },
   saveButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
   },
 });
 

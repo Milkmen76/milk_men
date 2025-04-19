@@ -17,7 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
-import { launchImageLibrary } from 'react-native-image-picker';
+import * as ImagePicker from 'expo-image-picker';
 
 // Avatar image mapping
 const avatarImages = {
@@ -150,34 +150,44 @@ const ProfileScreen = () => {
     setEditing(!editing);
   };
   
-  const selectBusinessLogo = () => {
-    const options = {
-      mediaType: 'photo',
-      includeBase64: true,
-      maxHeight: 800,
-      maxWidth: 800,
-      quality: 0.7,
-    };
-
-    launchImageLibrary(options, (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled image picker');
-      } else if (response.errorCode) {
-        console.log('ImagePicker Error: ', response.errorMessage);
-        Alert.alert('Error', 'An error occurred while selecting the image');
-      } else if (response.assets && response.assets.length > 0) {
+  const selectBusinessLogo = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'You need to grant permission to access your photos');
+        return;
+      }
+      
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         console.log('Image selected successfully');
-        const source = { uri: response.assets[0].uri };
+        const source = { uri: result.assets[0].uri };
         console.log('Image URI:', source.uri);
-        console.log('Base64 data length:', response.assets[0].base64 ? response.assets[0].base64.length : 'No data');
+        
+        // Get base64 data
+        const base64 = result.assets[0].base64;
+        console.log('Base64 data length:', base64 ? base64.length : 'No data');
         
         setBusinessLogo(source.uri);
-        setLogoBase64(response.assets[0].base64);
+        setLogoBase64(base64);
         
         // Show success message
         Alert.alert('Success', 'Logo selected successfully. Save your profile to apply the changes.');
       }
-    });
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
   };
   
   const handleSaveProfile = async () => {
@@ -405,20 +415,23 @@ const ProfileScreen = () => {
             
             <Text style={styles.inputLabel}>Business Logo</Text>
             <View style={styles.logoContainer}>
-              {logoBase64 ? (
-                <Image 
-                  source={{ uri: `data:image/jpeg;base64,${logoBase64}` }}
-                  style={styles.businessLogoImage}
-                  resizeMode="contain"
-                />
-              ) : (
-                <View style={styles.placeholderLogo}>
-                  <Text style={styles.placeholderLogoText}>Add Logo</Text>
-                </View>
-              )}
+              <View style={styles.businessLogoWrapper}>
+                {logoBase64 ? (
+                  <Image 
+                    source={{ uri: `data:image/jpeg;base64,${logoBase64}` }}
+                    style={styles.businessLogoImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={styles.placeholderLogo}>
+                    <Text style={styles.placeholderLogoText}>Add Logo</Text>
+                  </View>
+                )}
+              </View>
               <TouchableOpacity 
                 style={styles.uploadLogoButton}
                 onPress={selectBusinessLogo}
+                activeOpacity={0.7}
               >
                 <Text style={styles.uploadLogoButtonText}>
                   {logoBase64 ? 'Change Logo' : 'Upload Logo'}
@@ -827,39 +840,52 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   logoContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     marginBottom: 16,
   },
-  businessLogoImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 16,
-  },
-  placeholderLogo: {
-    width: 80,
-    height: 80,
+  businessLogoWrapper: {
+    width: 150,
+    height: 150,
     borderRadius: 8,
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    overflow: 'hidden',
+  },
+  businessLogoImage: {
+    width: 140,
+    height: 140,
+  },
+  placeholderLogo: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   placeholderLogoText: {
     color: '#999',
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
   },
   uploadLogoButton: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: '#4e9af1',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 200,
   },
   uploadLogoButtonText: {
-    color: '#2196f3',
-    fontWeight: '500',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   profileInfoContainer: {
     marginBottom: 24,
