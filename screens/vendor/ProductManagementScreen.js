@@ -84,6 +84,8 @@ const ProductManagementScreen = () => {
         Alert.alert('Error', 'An error occurred while selecting the image');
       } else if (response.assets && response.assets.length > 0) {
         const source = { uri: response.assets[0].uri };
+        console.log('Image selected successfully. URI:', source.uri);
+        console.log('Base64 data length:', response.assets[0].base64 ? response.assets[0].base64.length : 'No data');
         setLocalImageUri(source.uri);
         setProductImageBase64(response.assets[0].base64);
         setProductImage(`custom_${Date.now()}.jpg`);
@@ -161,6 +163,12 @@ const ProductManagementScreen = () => {
     
     try {
       const priceValue = parseFloat(productPrice);
+      
+      // Log image details before saving
+      console.log('Saving product with image details:');
+      console.log('Image name:', productImage);
+      console.log('Has base64 data:', !!productImageBase64);
+      console.log('Base64 data length:', productImageBase64 ? productImageBase64.length : 0);
       
       if (editingProduct) {
         // Update existing product

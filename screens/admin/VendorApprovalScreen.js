@@ -173,38 +173,7 @@ const VendorApprovalScreen = () => {
     </View>
   );
 
-  const renderHeaderButtons = () => (
-    <View style={styles.headerButtons}>
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('UserListScreen')}
-      >
-        <Text style={styles.navButtonText}>User List</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('ProductListScreen')}
-      >
-        <Text style={styles.navButtonText}>Products</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('TransactionListScreen')}
-      >
-        <Text style={styles.navButtonText}>Transactions</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('ProfileScreen')}
-      >
-        <Text style={styles.navButtonText}>Profile</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
+  
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -236,7 +205,6 @@ const VendorApprovalScreen = () => {
           </TouchableOpacity>
         </View>
         
-        {renderHeaderButtons()}
       </View>
       
       <View style={styles.searchContainer}>

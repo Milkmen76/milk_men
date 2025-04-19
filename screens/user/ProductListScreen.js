@@ -23,9 +23,15 @@ const CARD_WIDTH = width * 0.9;
 
 // Get product image from base64 or default
 const getProductImage = (product) => {
+  // Log image details for debugging
+  console.log(`Getting image for product: ${product.name}, Image: ${product.image}`);
+  
   if (product.image_base64) {
+    console.log(`Using base64 image for ${product.name}, data length: ${product.image_base64.length}`);
     return { uri: `data:image/jpeg;base64,${product.image_base64}` };
   }
+  
+  console.log(`Using fallback image for ${product.name}`);
   return require('../../assets/milk-icon.png');
 };
 

@@ -164,28 +164,7 @@ const DashboardScreen = () => {
         </View>
       </View>
       
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('ProductManagementScreen')}
-        >
-          <Text style={styles.actionButtonText}>Manage Products</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('OrderManagementScreen')}
-        >
-          <Text style={styles.actionButtonText}>Manage Orders</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('ProfileScreen')}
-        >
-          <Text style={styles.actionButtonText}>View Profile</Text>
-        </TouchableOpacity>
-      </View>
+     
       
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent Orders</Text>

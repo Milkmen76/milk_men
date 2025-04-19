@@ -24,9 +24,14 @@ const windowWidth = Dimensions.get('window').width;
 
 // Helper function to get vendor image
 const getVendorImage = (vendor) => {
-  if (vendor.profile_info?.logo_base64) {
-    return { uri: `data:image/jpeg;base64,${vendor.profile_info.logo_base64}` };
+  console.log(`Getting image for vendor: ${vendor.businessName}`);
+  
+  if (vendor.logo_base64) {
+    console.log(`Using base64 logo for ${vendor.businessName}, data length: ${vendor.logo_base64.length}`);
+    return { uri: `data:image/jpeg;base64,${vendor.logo_base64}` };
   }
+  
+  console.log(`Using fallback logo for ${vendor.businessName}`);
   return require('../../assets/milk-icon.png');
 };
 
@@ -54,7 +59,12 @@ const imageMap = {
 
 // Get product image from base64 or default
 const getProductImage = (product) => {
+  if (!product) return require('../../assets/milk-icon.png');
+  
+  console.log(`Getting image for product: ${product.name || 'unknown'}`);
+  
   if (product.image_base64) {
+    console.log(`Using base64 image for product, data length: ${product.image_base64.length}`);
     return { uri: `data:image/jpeg;base64,${product.image_base64}` };
   }
   return imageMap[product.image] || require('../../assets/milk-icon.png');
@@ -92,21 +102,28 @@ const HomeScreen = () => {
         u => u.role === 'vendor' && u.approval_status === 'approved'
       );
       
+      console.log(`Found ${approvedVendors.length} approved vendors`);
+      
       // Enhance vendor data with additional info
-      const enhancedVendors = approvedVendors.map(vendor => ({
-        id: vendor.id,
-        name: vendor.name,
-        businessName: vendor.profile_info?.business_name || 'Milk Vendor',
-        // Use vendor's own logo if available
-        logo_base64: vendor.profile_info?.logo_base64 || null,
-        description: vendor.profile_info?.description || 'Fresh dairy products',
-        rating: vendor.profile_info?.rating || (Math.random() * 2 + 3).toFixed(1), // Random rating between 3-5
-        location: { 
-          city: vendor.profile_info?.address?.split(',')?.pop()?.trim() || 'Bhawarkua' 
-        },
-        distance: (Math.random() * 3 + 0.5).toFixed(1), // Random distance 0.5-3.5 km
-        yearsInBusiness: `${Math.floor(Math.random() * 5) + 1} years` // Random 1-5 years
-      }));
+      const enhancedVendors = approvedVendors.map(vendor => {
+        console.log(`Processing vendor: ${vendor.name}`);
+        console.log(`Vendor has logo: ${!!vendor.profile_info?.logo_base64}`);
+        
+        return {
+          id: vendor.id,
+          name: vendor.name,
+          businessName: vendor.profile_info?.business_name || 'Milk Vendor',
+          // Use vendor's own logo if available
+          logo_base64: vendor.profile_info?.logo_base64 || null,
+          description: vendor.profile_info?.description || 'Fresh dairy products',
+          rating: vendor.profile_info?.rating || (Math.random() * 2 + 3).toFixed(1), // Random rating between 3-5
+          location: { 
+            city: vendor.profile_info?.address?.split(',')?.pop()?.trim() || 'Bhawarkua' 
+          },
+          distance: (Math.random() * 3 + 0.5).toFixed(1), // Random distance 0.5-3.5 km
+          yearsInBusiness: `${Math.floor(Math.random() * 5) + 1} years` // Random 1-5 years
+        };
+      });
       
       setVendors(enhancedVendors);
     } catch (error) {
@@ -380,13 +397,16 @@ const HomeScreen = () => {
   const renderSuggestedVendorItem = ({ item, index }) => {
     if (index > 1) return null; // Only show first two vendors in suggested section
     
+    const imageSource = getVendorImage(item);
+    console.log(`Rendering suggested vendor: ${item.businessName}, has logo: ${!!item.logo_base64}`);
+    
     return (
       <TouchableOpacity
         style={styles.suggestedVendorCard}
         onPress={() => navigateToVendorProducts(item.id, item.businessName)}
       >
         <Image 
-          source={item.logo_base64 ? { uri: `data:image/jpeg;base64,${item.logo_base64}` } : require('../../assets/milk-icon.png')} 
+          source={imageSource}
           style={styles.suggestedVendorImage} 
           resizeMode="cover"
         />
@@ -422,31 +442,36 @@ const HomeScreen = () => {
     </TouchableOpacity>
   );
 
-  const renderPopularVendorItem = ({ item, index }) => (
-    <View style={styles.popularVendorContainer}>
-      <TouchableOpacity
-        style={styles.popularVendorCard}
-        onPress={() => navigateToVendorProducts(item.id, item.businessName)}
-      >
-        <Image 
-          source={item.logo_base64 ? { uri: `data:image/jpeg;base64,${item.logo_base64}` } : require('../../assets/milk-icon.png')} 
-          style={styles.popularVendorImage} 
-        />
-      </TouchableOpacity>
-      <Text style={styles.popularVendorName}>{item.businessName}</Text>
-      <View style={styles.ratingContainer}>
-        {[1, 2, 3, 4, 5].map(star => (
-          <Text key={star} style={styles.smallStarIcon}>★</Text>
-        ))}
-      </View>
-      <View style={styles.vendorInfoRow}>
-        <Text style={styles.vendorDistance}>{item.distance || '1.4 km'}</Text>
-        <View style={styles.yearsContainer}>
-          <Text style={styles.yearsText}>{item.yearsInBusiness || '2 years'}</Text>
+  const renderPopularVendorItem = ({ item, index }) => {
+    const imageSource = getVendorImage(item);
+    console.log(`Rendering popular vendor: ${item.businessName}, has logo: ${!!item.logo_base64}`);
+    
+    return (
+      <View style={styles.popularVendorContainer}>
+        <TouchableOpacity
+          style={styles.popularVendorCard}
+          onPress={() => navigateToVendorProducts(item.id, item.businessName)}
+        >
+          <Image 
+            source={imageSource}
+            style={styles.popularVendorImage} 
+          />
+        </TouchableOpacity>
+        <Text style={styles.popularVendorName}>{item.businessName}</Text>
+        <View style={styles.ratingContainer}>
+          {[1, 2, 3, 4, 5].map(star => (
+            <Text key={star} style={styles.smallStarIcon}>★</Text>
+          ))}
+        </View>
+        <View style={styles.vendorInfoRow}>
+          <Text style={styles.vendorDistance}>{item.distance || '1.4 km'}</Text>
+          <View style={styles.yearsContainer}>
+            <Text style={styles.yearsText}>{item.yearsInBusiness || '2 years'}</Text>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderCategoryProductItem = ({ item }) => {
     const quantity = selectedProducts[item.product_id] || 0;

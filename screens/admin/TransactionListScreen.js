@@ -271,38 +271,7 @@ const TransactionListScreen = () => {
     </View>
   );
 
-  const renderHeaderButtons = () => (
-    <View style={styles.headerButtons}>
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('VendorApproval')}
-      >
-        <Text style={styles.navButtonText}>Approvals</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('UserListScreen')}
-      >
-        <Text style={styles.navButtonText}>Users</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('ProductListScreen')}
-      >
-        <Text style={styles.navButtonText}>Products</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('ProfileScreen')}
-      >
-        <Text style={styles.navButtonText}>Profile</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
+  
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -335,8 +304,7 @@ const TransactionListScreen = () => {
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
-        
-        {renderHeaderButtons()}
+    
       </View>
       
       <View style={styles.searchContainer}>

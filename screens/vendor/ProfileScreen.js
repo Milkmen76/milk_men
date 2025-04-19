@@ -166,9 +166,16 @@ const ProfileScreen = () => {
         console.log('ImagePicker Error: ', response.errorMessage);
         Alert.alert('Error', 'An error occurred while selecting the image');
       } else if (response.assets && response.assets.length > 0) {
+        console.log('Image selected successfully');
         const source = { uri: response.assets[0].uri };
+        console.log('Image URI:', source.uri);
+        console.log('Base64 data length:', response.assets[0].base64 ? response.assets[0].base64.length : 'No data');
+        
         setBusinessLogo(source.uri);
         setLogoBase64(response.assets[0].base64);
+        
+        // Show success message
+        Alert.alert('Success', 'Logo selected successfully. Save your profile to apply the changes.');
       }
     });
   };
@@ -187,6 +194,10 @@ const ProfileScreen = () => {
     setLoading(true);
     
     try {
+      console.log('Saving profile with logo data:');
+      console.log('Has logo base64 data:', !!logoBase64);
+      console.log('Logo base64 data length:', logoBase64 ? logoBase64.length : 0);
+      
       // Prepare profile data update
       const updateData = {
         profile_info: {
@@ -298,9 +309,6 @@ const ProfileScreen = () => {
             <Text style={styles.headerTitle}>Profile</Text>
             <Text style={styles.headerSubtitle}>Manage your business profile</Text>
           </View>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Sign Out</Text>
-          </TouchableOpacity>
         </View>
         
         <View style={styles.profileCard}>
@@ -504,7 +512,20 @@ const ProfileScreen = () => {
             </View>
           </View>
         )}
+        
+        {/* Add spacing to ensure bottom button doesn't overlap content */}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
+      
+      {/* Sign Out Button at the bottom of screen */}
+      <View style={styles.bottomButtonContainer}>
+        <TouchableOpacity 
+          style={styles.logoutButtonBottom}
+          onPress={handleLogout}
+        >
+          <Text style={styles.logoutButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
       
       {/* Avatar Selection Modal */}
       <Modal
@@ -556,6 +577,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
+    paddingBottom: 100, // Add extra padding at the bottom for the sign out button
   },
   header: {
     flexDirection: 'row',
@@ -582,9 +604,41 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffebee',
     borderRadius: 8,
   },
+  bottomButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  logoutButtonBottom: {
+    backgroundColor: '#ffebee',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
   logoutButtonText: {
     color: '#f44336',
-    fontWeight: '500',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  bottomSpacer: {
+    height: 80, // Extra space at the bottom to ensure content is not hidden under the button
   },
   profileCard: {
     backgroundColor: '#fff',
@@ -706,12 +760,9 @@ const styles = StyleSheet.create({
     width: '50%',
     paddingHorizontal: 8,
     marginBottom: 16,
-  },
-  statInner: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
