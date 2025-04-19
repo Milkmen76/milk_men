@@ -12,7 +12,8 @@ import {
   Dimensions,
   TextInput,
   Modal,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -20,6 +21,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
 
 const windowWidth = Dimensions.get('window').width;
+
+// Helper function to get vendor image
+const getVendorImage = (vendor) => {
+  if (vendor.profile_info?.logo_base64) {
+    return { uri: `data:image/jpeg;base64,${vendor.profile_info.logo_base64}` };
+  }
+  return require('../../assets/milk-icon.png');
+};
 
 // Simple date formatting function
 const formatSimpleDate = (date) => {
@@ -43,6 +52,14 @@ const imageMap = {
   "milk2.jpg": require('../../assets/milk-icon.png'),
 };
 
+// Get product image from base64 or default
+const getProductImage = (product) => {
+  if (product.image_base64) {
+    return { uri: `data:image/jpeg;base64,${product.image_base64}` };
+  }
+  return imageMap[product.image] || require('../../assets/milk-icon.png');
+};
+
 const HomeScreen = () => {
   const { user } = useAuth();
   const navigation = useNavigation();
@@ -60,6 +77,11 @@ const HomeScreen = () => {
   const [categoryVendors, setCategoryVendors] = useState({});
   const [selectedProducts, setSelectedProducts] = useState({});
   const [categoryLoading, setCategoryLoading] = useState(false);
+  const [address, setAddress] = useState('');
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   // Fetch vendors from local data
   const fetchVendors = async () => {
@@ -73,8 +95,10 @@ const HomeScreen = () => {
       // Enhance vendor data with additional info
       const enhancedVendors = approvedVendors.map(vendor => ({
         id: vendor.id,
+        name: vendor.name,
         businessName: vendor.profile_info?.business_name || 'Milk Vendor',
-        logo: 'https://images.unsplash.com/photo-1516054575922-f0b8eeadec1a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60', // Default image
+        // Use vendor's own logo if available
+        logo_base64: vendor.profile_info?.logo_base64 || null,
         description: vendor.profile_info?.description || 'Fresh dairy products',
         rating: vendor.profile_info?.rating || (Math.random() * 2 + 3).toFixed(1), // Random rating between 3-5
         location: { 
@@ -114,7 +138,7 @@ const HomeScreen = () => {
             vendor: vendor ? {
               id: vendor.id,
               businessName: vendor.profile_info?.business_name || 'Milk Vendor',
-              logo: 'https://images.unsplash.com/photo-1516054575922-f0b8eeadec1a?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60'
+              logo_base64: vendor.profile_info?.logo_base64 || null
             } : null
           };
           return formattedSub;
@@ -145,6 +169,7 @@ const HomeScreen = () => {
       });
       
       setProducts(productsWithCategories);
+      setAddress(user?.profile_info?.address || 'Add Delivery Address');
     } catch (error) {
       console.error('Error fetching products: ', error);
     }
@@ -191,7 +216,7 @@ const HomeScreen = () => {
         categories.push({
           id: product.product_id,
           name: product.category,
-          image: require('../../assets/milk-icon.png') // Default image if needed
+          image: getProductImage(product)
         });
       }
     });
@@ -209,8 +234,7 @@ const HomeScreen = () => {
   };
 
   const handleAddressPress = () => {
-    // Navigate to address screen or show address modal
-    console.log('Add address pressed');
+    navigation.navigate('ProfileTab');
   };
 
   const handleProfilePress = () => {
@@ -362,7 +386,7 @@ const HomeScreen = () => {
         onPress={() => navigateToVendorProducts(item.id, item.businessName)}
       >
         <Image 
-          source={{ uri: item.logo || 'https://via.placeholder.com/100' }} 
+          source={item.logo_base64 ? { uri: `data:image/jpeg;base64,${item.logo_base64}` } : require('../../assets/milk-icon.png')} 
           style={styles.suggestedVendorImage} 
           resizeMode="cover"
         />
@@ -405,7 +429,7 @@ const HomeScreen = () => {
         onPress={() => navigateToVendorProducts(item.id, item.businessName)}
       >
         <Image 
-          source={{ uri: item.logo || 'https://via.placeholder.com/100' }} 
+          source={item.logo_base64 ? { uri: `data:image/jpeg;base64,${item.logo_base64}` } : require('../../assets/milk-icon.png')} 
           style={styles.popularVendorImage} 
         />
       </TouchableOpacity>
@@ -432,7 +456,7 @@ const HomeScreen = () => {
       <View style={styles.productCard}>
         <View style={styles.productImageContainer}>
           <Image 
-            source={imageMap[item.image] || require('../../assets/milk-icon.png')}
+            source={getProductImage(item)}
             style={styles.productImage}
             resizeMode="contain"
           />

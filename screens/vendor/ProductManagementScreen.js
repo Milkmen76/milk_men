@@ -10,11 +10,13 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
+import { launchImageLibrary } from 'react-native-image-picker';
 
 // Image mapping for predefined product images
 const imageOptions = [
@@ -41,6 +43,8 @@ const ProductManagementScreen = () => {
   const [productName, setProductName] = useState('');
   const [productPrice, setProductPrice] = useState('');
   const [productImage, setProductImage] = useState('milk1.jpg');
+  const [productImageBase64, setProductImageBase64] = useState(null);
+  const [localImageUri, setLocalImageUri] = useState(null);
   const [savingProduct, setSavingProduct] = useState(false);
 
   useEffect(() => {
@@ -63,12 +67,38 @@ const ProductManagementScreen = () => {
     }
   };
 
+  const selectProductImage = () => {
+    const options = {
+      mediaType: 'photo',
+      includeBase64: true,
+      maxHeight: 800,
+      maxWidth: 800,
+      quality: 0.7,
+    };
+
+    launchImageLibrary(options, (response) => {
+      if (response.didCancel) {
+        console.log('User cancelled image picker');
+      } else if (response.errorCode) {
+        console.log('ImagePicker Error: ', response.errorMessage);
+        Alert.alert('Error', 'An error occurred while selecting the image');
+      } else if (response.assets && response.assets.length > 0) {
+        const source = { uri: response.assets[0].uri };
+        setLocalImageUri(source.uri);
+        setProductImageBase64(response.assets[0].base64);
+        setProductImage(`custom_${Date.now()}.jpg`);
+      }
+    });
+  };
+
   const handleAddProduct = () => {
     // Reset form
     setEditingProduct(null);
     setProductName('');
     setProductPrice('');
     setProductImage('milk1.jpg');
+    setProductImageBase64(null);
+    setLocalImageUri(null);
     setModalVisible(true);
   };
 
@@ -77,6 +107,8 @@ const ProductManagementScreen = () => {
     setProductName(product.name);
     setProductPrice(product.price.toString());
     setProductImage(product.image);
+    setProductImageBase64(product.image_base64);
+    setLocalImageUri(null);
     setModalVisible(true);
   };
 
@@ -135,7 +167,8 @@ const ProductManagementScreen = () => {
         await localData.updateProduct(editingProduct.product_id, {
           name: productName,
           price: priceValue,
-          image: productImage
+          image: productImage,
+          image_base64: productImageBase64
         });
       } else {
         // Add new product
@@ -143,7 +176,8 @@ const ProductManagementScreen = () => {
           vendor_id: user.id,
           name: productName,
           price: priceValue,
-          image: productImage
+          image: productImage,
+          image_base64: productImageBase64
         });
       }
       
@@ -158,10 +192,17 @@ const ProductManagementScreen = () => {
     }
   };
 
+  const getProductImage = (item) => {
+    if (item.image_base64) {
+      return { uri: `data:image/jpeg;base64,${item.image_base64}` };
+    }
+    return imageMap[item.image] || require('../../assets/milk-icon.png');
+  };
+
   const renderProductItem = ({ item }) => (
     <View style={styles.productCard}>
       <Image 
-        source={imageMap[item.image] || require('../../assets/milk-icon.png')}
+        source={getProductImage(item)}
         style={styles.productImage}
         resizeMode="contain"
       />
@@ -202,13 +243,15 @@ const ProductManagementScreen = () => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>My Products</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={handleAddProduct}
-        >
-          <Text style={styles.addButtonText}>+ Add Product</Text>
-        </TouchableOpacity>
       </View>
+      
+      {/* Centered Add Product Button */}
+      <TouchableOpacity 
+        style={styles.centeredAddButton}
+        onPress={handleAddProduct}
+      >
+        <Text style={styles.addButtonText}>+ Add New Product</Text>
+      </TouchableOpacity>
       
       {products.length > 0 ? (
         <FlatList
@@ -254,52 +297,65 @@ const ProductManagementScreen = () => {
                 value={productPrice}
                 onChangeText={setProductPrice}
                 placeholder="Enter price"
-                keyboardType="decimal-pad"
+                keyboardType="numeric"
               />
               
               <Text style={styles.inputLabel}>Product Image</Text>
-              <View style={styles.imageOptions}>
-                {imageOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      styles.imageOption,
-                      productImage === option.value && styles.selectedImageOption
-                    ]}
-                    onPress={() => setProductImage(option.value)}
-                  >
-                    <Image
-                      source={imageMap[option.value]}
-                      style={styles.imageOptionPreview}
+              <View style={styles.imagePickerContainer}>
+                <TouchableOpacity 
+                  style={styles.imagePreview}
+                  onPress={selectProductImage}
+                >
+                  {localImageUri ? (
+                    <Image 
+                      source={{ uri: localImageUri }}
+                      style={styles.previewImage}
                       resizeMode="contain"
                     />
-                    <Text style={styles.imageOptionLabel}>{option.label}</Text>
-                  </TouchableOpacity>
-                ))}
+                  ) : productImageBase64 ? (
+                    <Image 
+                      source={{ uri: `data:image/jpeg;base64,${productImageBase64}` }}
+                      style={styles.previewImage}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Image 
+                      source={imageMap[productImage] || require('../../assets/milk-icon.png')}
+                      style={styles.previewImage}
+                      resizeMode="contain"
+                    />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.selectImageButton}
+                  onPress={selectProductImage}
+                >
+                  <Text style={styles.selectImageText}>Select Image</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={() => setModalVisible(false)}
+                  disabled={savingProduct}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.saveButton}
+                  onPress={handleSaveProduct}
+                  disabled={savingProduct}
+                >
+                  {savingProduct ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  )}
+                </TouchableOpacity>
               </View>
             </ScrollView>
-            
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
-                disabled={savingProduct}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleSaveProduct}
-                disabled={savingProduct}
-              >
-                {savingProduct ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
       </Modal>
@@ -310,205 +366,235 @@ const ProductManagementScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9'
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666'
+    backgroundColor: '#f9f9f9',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee'
+    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333'
+    color: '#333',
   },
   addButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  centeredAddButton: {
+    backgroundColor: '#4e9af1',
+    marginHorizontal: 20,
+    marginVertical: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   addButtonText: {
     color: '#fff',
-    fontWeight: '500'
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
   productList: {
-    padding: 16
+    padding: 16,
   },
   productCard: {
-    flexDirection: 'row',
     backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 16,
-    borderRadius: 10,
-    marginBottom: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   productImage: {
-    width: 50,
-    height: 50,
-    marginRight: 12
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 16,
   },
   productInfo: {
-    flex: 1
+    flex: 1,
   },
   productName: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4
+    marginBottom: 4,
   },
   productPrice: {
-    fontSize: 15,
-    color: '#4e9af1',
-    fontWeight: 'bold'
+    fontSize: 14,
+    color: '#666',
   },
   productActions: {
-    flexDirection: 'row'
+    flexDirection: 'column',
   },
   actionButton: {
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 4,
-    marginLeft: 8
+    borderRadius: 6,
+    marginBottom: 8,
   },
   editButton: {
-    backgroundColor: '#f0ad4e'
+    backgroundColor: '#e3f2fd',
   },
   deleteButton: {
-    backgroundColor: '#d9534f'
+    backgroundColor: '#ffebee',
   },
   actionButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: 20,
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8
+    marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
     color: '#666',
-    textAlign: 'center'
+    textAlign: 'center',
   },
+  // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   modalContent: {
-    width: '90%',
     backgroundColor: '#fff',
-    borderRadius: 10,
+    borderRadius: 16,
+    width: '90%',
+    maxHeight: '80%',
     padding: 20,
-    maxHeight: '80%'
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 20,
     color: '#333',
-    textAlign: 'center'
+    marginBottom: 20,
+    textAlign: 'center',
   },
   formContainer: {
-    maxHeight: 400
+    marginBottom: 20,
   },
   inputLabel: {
     fontSize: 14,
-    color: '#555',
-    marginBottom: 6
+    color: '#666',
+    marginBottom: 6,
   },
   textInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 6,
-    padding: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     marginBottom: 16,
-    fontSize: 15
+    fontSize: 16,
   },
-  imageOptions: {
+  imagePickerContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  imageOption: {
-    width: '48%',
-    margin: '1%',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 6,
-    padding: 10,
-    alignItems: 'center'
+  imagePreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    overflow: 'hidden',
   },
-  selectedImageOption: {
-    borderColor: '#4e9af1',
-    backgroundColor: '#f0f8ff'
+  previewImage: {
+    width: '100%',
+    height: '100%',
   },
-  imageOptionPreview: {
-    width: 60,
-    height: 60,
-    marginBottom: 8
+  selectImageButton: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
-  imageOptionLabel: {
-    fontSize: 14,
-    color: '#333'
+  selectImageText: {
+    color: '#2196f3',
+    fontWeight: '500',
   },
-  modalActions: {
+  buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20
-  },
-  modalButton: {
-    flexGrow: 1,
-    paddingVertical: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginHorizontal: 5
   },
   cancelButton: {
-    backgroundColor: '#f1f1f1',
-    borderWidth: 1,
-    borderColor: '#ddd'
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 10,
+    alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#555',
-    fontWeight: '500'
+    color: '#666',
+    fontWeight: '500',
   },
   saveButton: {
-    backgroundColor: '#4e9af1'
+    flex: 1,
+    backgroundColor: '#4e9af1',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginLeft: 10,
+    alignItems: 'center',
   },
   saveButtonText: {
     color: '#fff',
-    fontWeight: '500'
-  }
+    fontWeight: 'bold',
+  },
 });
 
 export default ProductManagementScreen;
