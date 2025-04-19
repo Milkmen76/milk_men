@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,13 @@ import {
   SafeAreaView,
   Platform,
   TextInput,
-  ScrollView
+  ScrollView,
+  Image,
+  Animated,
+  Share,
+  Modal
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
 
@@ -42,6 +46,7 @@ const DeliveryStatus = {
 
 const OrderManagementScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const { user } = useAuth();
   
   const [orders, setOrders] = useState([]);
@@ -52,6 +57,12 @@ const OrderManagementScreen = () => {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('orders'); // 'orders' or 'subscriptions'
   const [searchQuery, setSearchQuery] = useState('');
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [allProducts, setAllProducts] = useState({});
+  
+  // Animation values
+  const modalAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadData();
@@ -78,6 +89,14 @@ const OrderManagementScreen = () => {
         usersMap[user.id] = user;
       });
       setUsers(usersMap);
+      
+      // Load products
+      const vendorProducts = await localData.getProductsByVendor(user.id);
+      const productsMap = {};
+      vendorProducts.forEach(product => {
+        productsMap[product.product_id] = product;
+      });
+      setAllProducts(productsMap);
     } catch (error) {
       console.error('Error loading data:', error);
       Alert.alert('Error', 'Failed to load data');
@@ -342,6 +361,190 @@ const OrderManagementScreen = () => {
     }
   };
 
+  const handleViewOrderDetails = (item) => {
+    setSelectedItem(item);
+    setDetailsModalVisible(true);
+    
+    // Start animation
+    Animated.timing(modalAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+  
+  const closeDetailsModal = () => {
+    // Animate out
+    Animated.timing(modalAnimation, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setDetailsModalVisible(false);
+      setSelectedItem(null);
+    });
+  };
+  
+  const shareInvoice = async () => {
+    if (!selectedItem) return;
+    
+    const customer = users[selectedItem.user_id] || {};
+    const customerName = customer.name || 'Unknown Customer';
+    
+    // Prepare content for sharing
+    let invoiceText = `INVOICE\n\n`;
+    invoiceText += `Order #${selectedItem.order_id}\n`;
+    invoiceText += `Date: ${formatDate(selectedItem.created_at || selectedItem.date)}\n`;
+    invoiceText += `Customer: ${customerName}\n\n`;
+    invoiceText += `Status: ${selectedItem.status?.toUpperCase()}\n\n`;
+    
+    // Add product details
+    invoiceText += `ITEMS:\n`;
+    if (Array.isArray(selectedItem.products)) {
+      let total = 0;
+      selectedItem.products.forEach((productId, index) => {
+        const product = allProducts[productId];
+        if (product) {
+          const productTotal = product.price * (selectedItem.quantities?.[index] || 1);
+          total += productTotal;
+          invoiceText += `${product.name} - ₹${product.price.toFixed(2)} x ${selectedItem.quantities?.[index] || 1} = ₹${productTotal.toFixed(2)}\n`;
+        }
+      });
+      invoiceText += `\nTotal: ₹${total.toFixed(2)}`;
+    } else {
+      invoiceText += `Total: ₹${parseFloat(selectedItem.total || 0).toFixed(2)}`;
+    }
+    
+    try {
+      await Share.share({
+        message: invoiceText,
+        title: `Invoice for Order #${selectedItem.order_id}`,
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to share invoice');
+    }
+  };
+  
+  // Get product image from base64 or default
+  const getProductImage = (productId) => {
+    const product = allProducts[productId];
+    if (product?.image_base64) {
+      return { uri: `data:image/jpeg;base64,${product.image_base64}` };
+    }
+    return require('../../assets/milk-icon.png');
+  };
+
+  const renderOrderDetails = () => {
+    if (!selectedItem) return null;
+    
+    const customer = users[selectedItem.user_id] || {};
+    const customerName = customer.name || 'Unknown Customer';
+    const customerAddress = customer.profile_info?.address || 'Address not available';
+    const customerPhone = customer.profile_info?.phone || 'Phone not available';
+    
+    return (
+      <ScrollView style={styles.detailsScrollView}>
+        <View style={styles.detailsHeader}>
+          <Text style={styles.detailsOrderId}>Order #{selectedItem.order_id}</Text>
+          <View style={[styles.detailsStatusBadge, { backgroundColor: getStatusColor(selectedItem.status) }]}>
+            <Text style={styles.detailsStatusText}>{selectedItem.status?.toUpperCase()}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.detailsSection}>
+          <Text style={styles.detailsSectionTitle}>Customer Information</Text>
+          <View style={styles.customerDetailRow}>
+            <Text style={styles.customerDetailLabel}>Name:</Text>
+            <Text style={styles.customerDetailValue}>{customerName}</Text>
+          </View>
+          <View style={styles.customerDetailRow}>
+            <Text style={styles.customerDetailLabel}>Phone:</Text>
+            <Text style={styles.customerDetailValue}>{customerPhone}</Text>
+          </View>
+          <View style={styles.customerDetailRow}>
+            <Text style={styles.customerDetailLabel}>Address:</Text>
+            <Text style={styles.customerDetailValue}>{customerAddress}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.detailsSection}>
+          <Text style={styles.detailsSectionTitle}>Order Details</Text>
+          <View style={styles.customerDetailRow}>
+            <Text style={styles.customerDetailLabel}>Date:</Text>
+            <Text style={styles.customerDetailValue}>{formatDate(selectedItem.created_at || selectedItem.date)}</Text>
+          </View>
+          <View style={styles.customerDetailRow}>
+            <Text style={styles.customerDetailLabel}>Payment:</Text>
+            <Text style={styles.customerDetailValue}>{selectedItem.payment_method || 'Cash on Delivery'}</Text>
+          </View>
+          <View style={styles.customerDetailRow}>
+            <Text style={styles.customerDetailLabel}>Delivery Date:</Text>
+            <Text style={styles.customerDetailValue}>{formatDate(selectedItem.delivery_date)}</Text>
+          </View>
+          <View style={styles.customerDetailRow}>
+            <Text style={styles.customerDetailLabel}>Delivery Time:</Text>
+            <Text style={styles.customerDetailValue}>{selectedItem.delivery_time || 'Not specified'}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.detailsSection}>
+          <Text style={styles.detailsSectionTitle}>Items</Text>
+          {Array.isArray(selectedItem.products) && selectedItem.products.map((productId, index) => {
+            const product = allProducts[productId];
+            if (!product) return null;
+            
+            const quantity = selectedItem.quantities?.[index] || 1;
+            const itemTotal = product.price * quantity;
+            
+            return (
+              <View key={`${productId}-${index}`} style={styles.productItem}>
+                <Image 
+                  source={getProductImage(productId)} 
+                  style={styles.productImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.productDetails}>
+                  <Text style={styles.productName}>{product.name}</Text>
+                  <Text style={styles.productPrice}>₹{product.price.toFixed(2)} × {quantity}</Text>
+                </View>
+                <Text style={styles.productTotal}>₹{itemTotal.toFixed(2)}</Text>
+              </View>
+            );
+          })}
+        </View>
+        
+        <View style={styles.totalSection}>
+          <Text style={styles.totalLabel}>Order Total</Text>
+          <Text style={styles.totalAmount}>₹{parseFloat(selectedItem.total || 0).toFixed(2)}</Text>
+        </View>
+        
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.detailsActionButton,
+              (selectedItem.status === OrderStatus.DELIVERED || 
+              selectedItem.status === OrderStatus.CANCELLED) && styles.disabledButton
+            ]}
+            onPress={() => {
+              closeDetailsModal();
+              handleOrderStatusChange(selectedItem.order_id, selectedItem.status);
+            }}
+            disabled={selectedItem.status === OrderStatus.DELIVERED || selectedItem.status === OrderStatus.CANCELLED}
+          >
+            <Text style={styles.detailsActionButtonText}>Update Status</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.invoiceButton}
+            onPress={shareInvoice}
+          >
+            <Text style={styles.invoiceButtonText}>Share Invoice</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  };
+
   const renderOrderItem = ({ item }) => {
     // Get customer name
     const customer = users[item.user_id] || {};
@@ -397,10 +600,7 @@ const OrderManagementScreen = () => {
           
           <TouchableOpacity
             style={styles.viewButton}
-            onPress={() => {
-              Alert.alert('Order Details', `View full details for order #${item.order_id}`);
-              // In a real app, navigate to order details screen
-            }}
+            onPress={() => handleViewOrderDetails(item)}
           >
             <Text style={styles.viewButtonText}>View Details</Text>
           </TouchableOpacity>
@@ -547,37 +747,78 @@ const OrderManagementScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Order Details Modal */}
+      <Modal
+        visible={detailsModalVisible}
+        transparent={true}
+        animationType="none"
+        onRequestClose={closeDetailsModal}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View 
+            style={[
+              styles.modalContainer,
+              {
+                opacity: modalAnimation,
+                transform: [
+                  {
+                    translateY: modalAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [300, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Order Details</Text>
+              <TouchableOpacity onPress={closeDetailsModal} style={styles.closeButton}>
+                <Text style={styles.closeButtonText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {renderOrderDetails()}
+          </Animated.View>
+        </View>
+      </Modal>
+      
       <View style={styles.header}>
-        <Text style={styles.title}>Manage Deliveries</Text>
-      </View>
-      
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'orders' && styles.activeTabButton]}
-          onPress={() => setActiveTab('orders')}
-        >
-          <Text style={[styles.tabButtonText, activeTab === 'orders' && styles.activeTabText]}>
-            Orders
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'subscriptions' && styles.activeTabButton]}
-          onPress={() => setActiveTab('subscriptions')}
-        >
-          <Text style={[styles.tabButtonText, activeTab === 'subscriptions' && styles.activeTabText]}>
-            Subscriptions
-          </Text>
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder={`Search ${activeTab}...`}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          clearButtonMode="while-editing"
-        />
+        <Text style={styles.title}>Order Management</Text>
+        
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search orders..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#999"
+          />
+        </View>
+        
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'orders' && styles.activeTabButton]}
+            onPress={() => setActiveTab('orders')}
+          >
+            <Text 
+              style={[styles.tabButtonText, activeTab === 'orders' && styles.activeTabText]}
+            >
+              Orders
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'subscriptions' && styles.activeTabButton]}
+            onPress={() => setActiveTab('subscriptions')}
+          >
+            <Text 
+              style={[styles.tabButtonText, activeTab === 'subscriptions' && styles.activeTabText]}
+            >
+              Subscriptions
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
       
       {renderFilterButtons()}
@@ -897,7 +1138,193 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center'
-  }
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '90%',
+    height: '80%',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#555',
+    fontWeight: 'bold',
+  },
+  detailsScrollView: {
+    flex: 1,
+    padding: 16,
+  },
+  detailsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  detailsOrderId: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  detailsStatusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  detailsStatusText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  detailsSection: {
+    marginBottom: 24,
+    backgroundColor: '#f9f9f9',
+    padding: 16,
+    borderRadius: 12,
+  },
+  detailsSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  customerDetailRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  customerDetailLabel: {
+    width: 90,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  customerDetailValue: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+  },
+  productItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  productImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+  },
+  productDetails: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  productName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 4,
+  },
+  productPrice: {
+    fontSize: 14,
+    color: '#666',
+  },
+  productTotal: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  totalSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+    marginTop: 8,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  totalAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#4e9af1',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    marginTop: 24,
+    marginBottom: 40,
+  },
+  detailsActionButton: {
+    flex: 1,
+    backgroundColor: '#4e9af1',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  detailsActionButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  invoiceButton: {
+    flex: 1,
+    backgroundColor: '#5cb85c',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  invoiceButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });
 
 export default OrderManagementScreen;

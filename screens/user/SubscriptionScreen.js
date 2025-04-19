@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -9,33 +9,65 @@ import {
   Alert,
   Modal,
   Platform,
-  SafeAreaView
+  SafeAreaView,
+  Animated,
+  Image,
+  Dimensions,
+  FlatList
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as localData from '../../services/localData';
 import { useAuth } from '../../contexts/AuthContext';
 
+const { width } = Dimensions.get('window');
+
 const subscriptionTypes = [
-  { value: 'daily', label: 'Daily Delivery', description: 'Fresh milk delivered every day' },
-  { value: 'weekly', label: 'Weekly Delivery', description: 'Delivery once a week on your preferred day' },
-  { value: 'monthly', label: 'Monthly Package', description: 'Monthly subscription with bulk discount' },
+  { 
+    value: 'daily', 
+    label: 'Daily Delivery', 
+    description: 'Fresh milk delivered every day',
+    icon: '🌞',
+    price: 45.99 
+  },
+  { 
+    value: 'weekly', 
+    label: 'Weekly Delivery', 
+    description: 'Delivery once a week on your preferred day',
+    icon: '📅',
+    price: 22.99 
+  },
+  { 
+    value: 'monthly', 
+    label: 'Monthly Package', 
+    description: 'Monthly subscription with bulk discount',
+    icon: '📦',
+    price: 89.99 
+  },
 ];
 
 const timeSlots = [
-  { id: 'morning', label: 'Morning (6AM - 9AM)', value: '06:00-09:00' },
-  { id: 'midday', label: 'Mid-day (11AM - 2PM)', value: '11:00-14:00' },
-  { id: 'evening', label: 'Evening (5PM - 8PM)', value: '17:00-20:00' }
+  { id: 'morning', label: 'Morning', time: '6:00 AM - 9:00 AM', icon: '🌅' },
+  { id: 'midday', label: 'Afternoon', time: '12:00 PM - 2:00 PM', icon: '☀️' },
+  { id: 'evening', label: 'Evening', time: '5:00 PM - 8:00 PM', icon: '🌇' }
 ];
 
 const daysOfWeek = [
-  { id: 0, name: 'Sunday' },
-  { id: 1, name: 'Monday' },
-  { id: 2, name: 'Tuesday' },
-  { id: 3, name: 'Wednesday' },
-  { id: 4, name: 'Thursday' },
-  { id: 5, name: 'Friday' },
-  { id: 6, name: 'Saturday' },
+  { id: 0, name: 'Sunday', shortName: 'Sun' },
+  { id: 1, name: 'Monday', shortName: 'Mon' },
+  { id: 2, name: 'Tuesday', shortName: 'Tue' },
+  { id: 3, name: 'Wednesday', shortName: 'Wed' },
+  { id: 4, name: 'Thursday', shortName: 'Thu' },
+  { id: 5, name: 'Friday', shortName: 'Fri' },
+  { id: 6, name: 'Saturday', shortName: 'Sat' },
 ];
+
+// Get vendor image from base64 or default
+const getVendorImage = (vendor) => {
+  if (vendor?.profile_info?.logo_base64) {
+    return { uri: `data:image/jpeg;base64,${vendor.profile_info.logo_base64}` };
+  }
+  return require('../../assets/milk-icon.png');
+};
 
 const SubscriptionScreen = () => {
   const navigation = useNavigation();
@@ -47,14 +79,24 @@ const SubscriptionScreen = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('weekly');
-  const [startDate, setStartDate] = useState(new Date());
-  // Add 1 day to start date to ensure it's in the future
-  startDate.setDate(startDate.getDate() + 1);
-  
+  const [startDate, setStartDate] = useState(getTomorrowDate());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(timeSlots[0].id);
   const [selectedDay, setSelectedDay] = useState(1); // Default to Monday
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [calendarDates, setCalendarDates] = useState([]);
+  const [calendarMonth, setCalendarMonth] = useState('');
+  const [showCalendar, setShowCalendar] = useState(false);
   const [processingSubscription, setProcessingSubscription] = useState(false);
+  
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true
+    }).start();
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,7 +120,44 @@ const SubscriptionScreen = () => {
     } else {
       setLoading(false);
     }
+    
+    // Initialize calendar
+    generateCalendarDates(startDate);
   }, [vendorId]);
+  
+  // Function to get tomorrow's date
+  function getTomorrowDate() {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+  }
+  
+  // Generate 30 days for the calendar
+  const generateCalendarDates = (baseDate) => {
+    const dates = [];
+    const month = baseDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    setCalendarMonth(month);
+    
+    // Start from tomorrow
+    const firstDay = new Date(baseDate);
+    
+    // Generate next 30 days
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(firstDay);
+      date.setDate(date.getDate() + i);
+      
+      dates.push({
+        date: date,
+        dayOfWeek: date.getDay(),
+        dayOfMonth: date.getDate(),
+        fullDate: date.toISOString(),
+        isToday: date.toDateString() === new Date().toDateString(),
+        isSelected: date.toDateString() === startDate.toDateString()
+      });
+    }
+    
+    setCalendarDates(dates);
+  };
 
   // Calculate end date based on subscription type
   const calculateEndDate = (type, start) => {
@@ -160,7 +239,7 @@ const SubscriptionScreen = () => {
       // Show success message
       Alert.alert(
         'Subscription Created Successfully',
-        `Your ${selectedType} subscription has been activated and will start on ${startDate.toDateString()} with delivery during ${timeSlots.find(slot => slot.id === selectedTimeSlot)?.label}.`,
+        `Your ${selectedType} subscription has been activated and will start on ${formatDate(startDate)} with delivery during ${timeSlots.find(slot => slot.id === selectedTimeSlot)?.label} hours.`,
         [
           { 
             text: 'OK', 
@@ -183,36 +262,31 @@ const SubscriptionScreen = () => {
   };
 
   const calculateSubscriptionPrice = (type) => {
-    // Simple pricing logic - in a real app, this would be more sophisticated
-    switch (type) {
-      case 'daily':
-        return 45.99;
-      case 'weekly':
-        return 22.99;
-      case 'monthly':
-        return 89.99;
-      default:
-        return 0;
-    }
+    const option = subscriptionTypes.find(t => t.value === type);
+    return option ? option.price : 0;
   };
 
-  const handleStartDateChange = (date) => {
-    setStartDate(date);
-    setShowDatePicker(false);
+  const handleDateSelect = (date) => {
+    setStartDate(new Date(date.fullDate));
+    setShowCalendar(false);
   };
-
-  const adjustDate = (days) => {
-    const newDate = new Date(startDate);
-    newDate.setDate(newDate.getDate() + days);
-    setStartDate(newDate);
+  
+  // Format date for display
+  const formatDate = (date) => {
+    if (!date) return '';
+    
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
   };
 
   const renderDeliveryOptions = () => {
     if (selectedType === 'weekly') {
       return (
-        <View style={styles.deliverySelection}>
-          <Text style={styles.deliveryLabel}>Preferred Day of Week:</Text>
-          <View style={styles.daySelector}>
+        <View style={styles.daySelector}>
+          <Text style={styles.daySelectorTitle}>Preferred Day of Week</Text>
+          <View style={styles.dayOptions}>
             {daysOfWeek.map((day) => (
               <TouchableOpacity
                 key={day.id}
@@ -222,11 +296,13 @@ const SubscriptionScreen = () => {
                 ]}
                 onPress={() => setSelectedDay(day.id)}
               >
-                <Text style={[
-                  styles.dayText,
-                  selectedDay === day.id && styles.selectedDayText
-                ]}>
-                  {day.name.slice(0, 3)}
+                <Text 
+                  style={[
+                    styles.dayText,
+                    selectedDay === day.id && styles.selectedDayText
+                  ]}
+                >
+                  {day.shortName}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -235,6 +311,27 @@ const SubscriptionScreen = () => {
       );
     }
     return null;
+  };
+  
+  const renderCalendarItem = ({ item }) => {
+    const isSelected = item.date.toDateString() === startDate.toDateString();
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.calendarDay,
+          isSelected && styles.selectedCalendarDay
+        ]}
+        onPress={() => handleDateSelect(item)}
+      >
+        <Text style={[styles.dayOfWeekText, isSelected && styles.selectedDayText]}>
+          {daysOfWeek[item.dayOfWeek].shortName}
+        </Text>
+        <Text style={[styles.dayOfMonthText, isSelected && styles.selectedDayText]}>
+          {item.dayOfMonth}
+        </Text>
+      </TouchableOpacity>
+    );
   };
 
   if (loading) {
@@ -248,156 +345,225 @@ const SubscriptionScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
-        {vendor && (
-          <View style={styles.vendorCard}>
-            <Text style={styles.vendorName}>
-              {vendor.profile_info?.business_name || 'Vendor'}
-            </Text>
-            <Text style={styles.vendorAddress}>
-              {vendor.profile_info?.address || 'No address provided'}
-            </Text>
-          </View>
-        )}
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Choose Subscription Type</Text>
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {vendor && (
+            <View style={styles.vendorCard}>
+              <Image 
+                source={getVendorImage(vendor)} 
+                style={styles.vendorImage} 
+                resizeMode="cover"
+              />
+              <View style={styles.vendorInfo}>
+                <Text style={styles.vendorName}>
+                  {vendor.profile_info?.business_name || 'Vendor'}
+                </Text>
+                <Text style={styles.vendorAddress}>
+                  {vendor.profile_info?.address || 'No address provided'}
+                </Text>
+                <View style={styles.vendorBadge}>
+                  <Text style={styles.vendorBadgeText}>Premium Vendor</Text>
+                </View>
+              </View>
+            </View>
+          )}
           
-          {subscriptionTypes.map((type) => (
-            <TouchableOpacity
-              key={type.value}
-              style={[
-                styles.subscriptionOption,
-                selectedType === type.value && styles.selectedOption
-              ]}
-              onPress={() => setSelectedType(type.value)}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Choose Subscription Plan</Text>
+            
+            {subscriptionTypes.map((type) => (
+              <TouchableOpacity
+                key={type.value}
+                style={[
+                  styles.subscriptionOption,
+                  selectedType === type.value && styles.selectedOption
+                ]}
+                onPress={() => setSelectedType(type.value)}
+              >
+                <View style={styles.optionIconContainer}>
+                  <Text style={styles.optionIcon}>{type.icon}</Text>
+                </View>
+                <View style={styles.optionContent}>
+                  <View style={styles.optionHeader}>
+                    <Text style={styles.optionLabel}>{type.label}</Text>
+                    <Text style={styles.optionPrice}>
+                      ₹{type.price}
+                    </Text>
+                  </View>
+                  <Text style={styles.optionDescription}>{type.description}</Text>
+                </View>
+                <View style={[styles.radioButton, selectedType === type.value && styles.radioButtonSelected]}>
+                  {selectedType === type.value && <View style={styles.radioButtonInner} />}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Delivery Schedule</Text>
+            
+            <TouchableOpacity 
+              style={styles.datePickerButton}
+              onPress={() => setShowCalendar(true)}
             >
-              <View style={styles.optionHeader}>
-                <Text style={styles.optionLabel}>{type.label}</Text>
-                <Text style={styles.optionPrice}>
-                  ₹{calculateSubscriptionPrice(type.value)}
+              <View style={styles.calendarIcon}>
+                <Text style={styles.calendarIconText}>📅</Text>
+              </View>
+              <View style={styles.dateInfo}>
+                <Text style={styles.dateLabel}>Starting Date</Text>
+                <Text style={styles.dateValue}>{formatDate(startDate)}</Text>
+              </View>
+              <Text style={styles.chevronRight}>›</Text>
+            </TouchableOpacity>
+            
+            {renderDeliveryOptions()}
+            
+            <View style={styles.timeSection}>
+              <Text style={styles.timeSectionTitle}>Preferred Delivery Time</Text>
+              
+              <View style={styles.timeOptions}>
+                {timeSlots.map((slot) => (
+                  <TouchableOpacity
+                    key={slot.id}
+                    style={[
+                      styles.timeOption,
+                      selectedTimeSlot === slot.id && styles.selectedTimeOption
+                    ]}
+                    onPress={() => setSelectedTimeSlot(slot.id)}
+                  >
+                    <Text style={styles.timeIcon}>{slot.icon}</Text>
+                    <View style={styles.timeInfo}>
+                      <Text 
+                        style={[
+                          styles.timeLabel,
+                          selectedTimeSlot === slot.id && styles.selectedTimeLabel
+                        ]}
+                      >
+                        {slot.label}
+                      </Text>
+                      <Text 
+                        style={[
+                          styles.timeValue,
+                          selectedTimeSlot === slot.id && styles.selectedTimeValue
+                        ]}
+                      >
+                        {slot.time}
+                      </Text>
+                    </View>
+                    <View style={[
+                      styles.timeRadioButton, 
+                      selectedTimeSlot === slot.id && styles.timeRadioButtonSelected
+                    ]}>
+                      {selectedTimeSlot === slot.id && <View style={styles.timeRadioButtonInner} />}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+          
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Subscription Summary</Text>
+            
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Subscription Type</Text>
+                <Text style={styles.summaryValue}>
+                  {subscriptionTypes.find(t => t.value === selectedType)?.label}
                 </Text>
               </View>
-              <Text style={styles.optionDescription}>{type.description}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Delivery Schedule</Text>
-          
-          <View style={styles.dateSection}>
-            <Text style={styles.dateLabel}>Start Date:</Text>
-            <View style={styles.dateControls}>
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => adjustDate(-1)}
-              >
-                <Text style={styles.dateButtonText}>-</Text>
-              </TouchableOpacity>
               
-              <TouchableOpacity
-                style={styles.dateDisplay}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Text style={styles.dateText}>{startDate.toDateString()}</Text>
-              </TouchableOpacity>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Start Date</Text>
+                <Text style={styles.summaryValue}>{formatDate(startDate)}</Text>
+              </View>
               
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => adjustDate(1)}
-              >
-                <Text style={styles.dateButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          {renderDeliveryOptions()}
-          
-          <View style={styles.timeSection}>
-            <Text style={styles.timeLabel}>Preferred Delivery Time:</Text>
-            <View style={styles.timeOptions}>
-              {timeSlots.map((slot) => (
-                <TouchableOpacity
-                  key={slot.id}
-                  style={[
-                    styles.timeOption,
-                    selectedTimeSlot === slot.id && styles.selectedTimeOption
-                  ]}
-                  onPress={() => setSelectedTimeSlot(slot.id)}
-                >
-                  <Text style={[
-                    styles.timeText,
-                    selectedTimeSlot === slot.id && styles.selectedTimeText
-                  ]}>
-                    {slot.label}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>End Date</Text>
+                <Text style={styles.summaryValue}>
+                  {formatDate(calculateEndDate(selectedType, startDate))}
+                </Text>
+              </View>
+              
+              {selectedType === 'weekly' && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Delivery Day</Text>
+                  <Text style={styles.summaryValue}>
+                    {daysOfWeek[selectedDay].name}
                   </Text>
-                </TouchableOpacity>
-              ))}
+                </View>
+              )}
+              
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Delivery Time</Text>
+                <Text style={styles.summaryValue}>
+                  {timeSlots.find(slot => slot.id === selectedTimeSlot)?.time}
+                </Text>
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.summaryRow}>
+                <Text style={styles.totalLabel}>Total Amount</Text>
+                <Text style={styles.totalValue}>
+                  ₹{calculateSubscriptionPrice(selectedType)}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subscription Summary</Text>
           
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subscription</Text>
-            <Text style={styles.summaryValue}>
-              {subscriptionTypes.find(t => t.value === selectedType)?.label}
-            </Text>
-          </View>
+          <TouchableOpacity
+            style={styles.subscribeButton}
+            onPress={handleSubscribe}
+            disabled={processingSubscription}
+          >
+            {processingSubscription ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
+            )}
+          </TouchableOpacity>
           
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Start Date</Text>
-            <Text style={styles.summaryValue}>{startDate.toDateString()}</Text>
-          </View>
-          
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>End Date</Text>
-            <Text style={styles.summaryValue}>
-              {calculateEndDate(selectedType, startDate).toDateString()}
-            </Text>
-          </View>
-          
-          {selectedType === 'weekly' && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Delivery Day</Text>
-              <Text style={styles.summaryValue}>
-                {daysOfWeek[selectedDay].name}
-              </Text>
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      </Animated.View>
+      
+      {/* Calendar Modal */}
+      <Modal
+        visible={showCalendar}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCalendar(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.calendarContainer}>
+            <View style={styles.calendarHeader}>
+              <Text style={styles.calendarTitle}>Select Start Date</Text>
+              <TouchableOpacity onPress={() => setShowCalendar(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
             </View>
-          )}
-          
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Delivery Time</Text>
-            <Text style={styles.summaryValue}>
-              {timeSlots.find(slot => slot.id === selectedTimeSlot)?.label}
-            </Text>
-          </View>
-          
-          <View style={styles.divider} />
-          
-          <View style={styles.summaryRow}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalValue}>
-              ₹{calculateSubscriptionPrice(selectedType)}
-            </Text>
+            
+            <Text style={styles.calendarMonth}>{calendarMonth}</Text>
+            
+            <FlatList
+              data={calendarDates}
+              renderItem={renderCalendarItem}
+              keyExtractor={(item) => item.fullDate}
+              horizontal={false}
+              numColumns={7}
+              contentContainerStyle={styles.calendarGrid}
+            />
+            
+            <TouchableOpacity
+              style={styles.confirmDateButton}
+              onPress={() => setShowCalendar(false)}
+            >
+              <Text style={styles.confirmDateButtonText}>Confirm Date</Text>
+            </TouchableOpacity>
           </View>
         </View>
-        
-        <TouchableOpacity
-          style={styles.subscribeButton}
-          onPress={handleSubscribe}
-          disabled={processingSubscription}
-        >
-          {processingSubscription ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -405,17 +571,17 @@ const SubscriptionScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff'
+    backgroundColor: '#f9f9f9'
   },
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f9f9f9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff'
+    backgroundColor: '#f9f9f9'
   },
   loadingText: {
     marginTop: 12,
@@ -423,11 +589,11 @@ const styles = StyleSheet.create({
     color: '#666'
   },
   vendorCard: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
+    margin: 16,
     padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -436,9 +602,19 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
+  },
+  vendorImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    marginRight: 16,
+    backgroundColor: '#f0f8ff',
+  },
+  vendorInfo: {
+    flex: 1,
   },
   vendorName: {
     fontSize: 18,
@@ -448,13 +624,27 @@ const styles = StyleSheet.create({
   },
   vendorAddress: {
     fontSize: 14,
-    color: '#666'
+    color: '#666',
+    marginBottom: 8
+  },
+  vendorBadge: {
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  vendorBadgeText: {
+    fontSize: 12,
+    color: '#2e7d32',
+    fontWeight: '500',
   },
   section: {
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
+    margin: 16,
+    marginTop: 0,
+    marginBottom: 16,
+    borderRadius: 16,
     padding: 16,
     ...Platform.select({
       ios: {
@@ -464,7 +654,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
   },
@@ -475,22 +665,39 @@ const styles = StyleSheet.create({
     marginBottom: 16
   },
   subscriptionOption: {
-    backgroundColor: '#f5f7fa',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0'
+    borderColor: '#eee'
   },
   selectedOption: {
     borderColor: '#4e9af1',
-    backgroundColor: '#f0f8ff'
+    backgroundColor: '#e3f2fd'
+  },
+  optionIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#e3f2fd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  optionIcon: {
+    fontSize: 24,
+  },
+  optionContent: {
+    flex: 1,
   },
   optionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8
+    marginBottom: 4
   },
   optionLabel: {
     fontSize: 16,
@@ -506,111 +713,167 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666'
   },
-  dateSection: {
-    marginBottom: 16
+  radioButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
   },
-  dateLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 8
+  radioButtonSelected: {
+    borderColor: '#4e9af1',
   },
-  dateControls: {
+  radioButtonInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4e9af1',
+  },
+  datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center'
+    backgroundColor: '#f8f8f8',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
   },
-  dateButton: {
-    backgroundColor: '#f0f0f0',
+  calendarIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: '#e3f2fd',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginRight: 12,
   },
-  dateButtonText: {
+  calendarIconText: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333'
   },
-  dateDisplay: {
+  dateInfo: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginHorizontal: 10,
-    alignItems: 'center'
   },
-  dateText: {
+  dateLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  dateValue: {
     fontSize: 16,
-    color: '#333'
-  },
-  deliverySelection: {
-    marginBottom: 16
-  },
-  deliveryLabel: {
-    fontSize: 15,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 8
+  },
+  chevronRight: {
+    fontSize: 24,
+    color: '#999',
   },
   daySelector: {
+    marginBottom: 16,
+  },
+  daySelectorTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 12,
+  },
+  dayOptions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
   },
   dayOption: {
-    width: '13.5%',
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 6,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#f0f0f0',
-    marginBottom: 8
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   selectedDayOption: {
-    backgroundColor: '#4e9af1'
+    backgroundColor: '#4e9af1',
   },
   dayText: {
-    fontSize: 12,
-    color: '#333'
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
   },
   selectedDayText: {
     color: '#fff',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
   },
   timeSection: {
-    marginBottom: 16
+    marginBottom: 8,
   },
-  timeLabel: {
-    fontSize: 15,
+  timeSectionTitle: {
+    fontSize: 16,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 8
+    marginBottom: 12,
   },
   timeOptions: {
-    flexDirection: 'column'
+    marginBottom: 8,
   },
   timeOption: {
-    backgroundColor: '#f5f7fa',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0'
+    borderColor: '#eee'
   },
   selectedTimeOption: {
     borderColor: '#4e9af1',
-    backgroundColor: '#f0f8ff'
+    backgroundColor: '#e3f2fd'
   },
-  timeText: {
+  timeIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  timeInfo: {
+    flex: 1,
+  },
+  timeLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 4,
+  },
+  timeValue: {
     fontSize: 14,
-    color: '#333'
+    color: '#666',
   },
-  selectedTimeText: {
+  selectedTimeLabel: {
+    color: '#4e9af1',
     fontWeight: 'bold',
-    color: '#4e9af1'
+  },
+  selectedTimeValue: {
+    color: '#4e9af1',
+  },
+  timeRadioButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timeRadioButtonSelected: {
+    borderColor: '#4e9af1',
+  },
+  timeRadioButtonInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4e9af1',
+  },
+  summaryCard: {
+    backgroundColor: '#f8f8f8',
+    padding: 16,
+    borderRadius: 12,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -619,11 +882,11 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666'
   },
   summaryValue: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#333',
     fontWeight: '500'
   },
@@ -645,9 +908,10 @@ const styles = StyleSheet.create({
   subscribeButton: {
     backgroundColor: '#4e9af1',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     margin: 16,
+    marginTop: 0,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -664,7 +928,96 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold'
-  }
+  },
+  bottomPadding: {
+    height: 40,
+  },
+  // Calendar Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  calendarContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    padding: 16,
+    maxHeight: '80%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeButton: {
+    fontSize: 20,
+    color: '#666',
+    padding: 4,
+  },
+  calendarMonth: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#4e9af1',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  calendarGrid: {
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  calendarDay: {
+    width: (width - 72) / 7,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 2,
+    borderRadius: 8,
+  },
+  selectedCalendarDay: {
+    backgroundColor: '#4e9af1',
+  },
+  dayOfWeekText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  dayOfMonthText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  confirmDateButton: {
+    backgroundColor: '#4e9af1',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  confirmDateButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
 
 export default SubscriptionScreen;
