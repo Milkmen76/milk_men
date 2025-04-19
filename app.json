@@ -4,38 +4,32 @@
     "slug": "milk",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       }
     },
     "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ]
-    ],
-    "experiments": {
-      "typedRoutes": true
+    "extra": {
+      "NHOST_SUBDOMAIN": "zcmtwrlyscfvnrqeorqg",
+      "NHOST_REGION": "ap-south-1",
+      "NHOST_GRAPHQL_URL": "https://zcmtwrlyscfvnrqeorqg.graphql.ap-south-1.nhost.run/v1",
+      "NHOST_STORAGE_URL": "https://zcmtwrlyscfvnrqeorqg.storage.ap-south-1.nhost.run/v1",
+      "NHOST_ADMIN_SECRET": ")jBcMqIpRK^S2nsn8S+euLCqfrp1UdS'"
     }
   }
 }
