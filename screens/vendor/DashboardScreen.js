@@ -7,8 +7,12 @@ import {
   ScrollView, 
   ActivityIndicator,
   Image,
-  FlatList
+  FlatList,
+  SafeAreaView,
+  StatusBar,
+  Platform
 } from 'react-native';
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
@@ -127,73 +131,98 @@ const DashboardScreen = () => {
   const businessName = user?.profile_info?.business_name || 'Your Business';
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeText}>Welcome,</Text>
-          <Text style={styles.businessName}>{businessName}</Text>
-        </View>
-        <TouchableOpacity onPress={handleLogout}>
-          <Image 
-            source={require('../../assets/milk-icon.png')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalProducts}</Text>
-          <Text style={styles.statLabel}>Products</Text>
-        </View>
-        
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.pendingOrders}</Text>
-          <Text style={styles.statLabel}>Pending Orders</Text>
-        </View>
-        
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{stats.totalOrders}</Text>
-          <Text style={styles.statLabel}>Total Orders</Text>
-        </View>
-        
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>₹{stats.revenue.toFixed(2)}</Text>
-          <Text style={styles.statLabel}>Revenue</Text>
-        </View>
-      </View>
-      
-     
-      
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Orders</Text>
-        
-        {orders.length > 0 ? (
-          <FlatList
-            data={orders.slice(0, 5)} // Show only the most recent 5 orders
-            renderItem={renderOrderItem}
-            keyExtractor={item => item.order_id}
-            scrollEnabled={false} // Disable scrolling as it's inside a ScrollView
-          />
-        ) : (
-          <Text style={styles.emptyText}>No orders yet</Text>
-        )}
-        
-        {orders.length > 5 && (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.welcomeText}>Welcome,</Text>
+            <Text style={styles.businessName}>{businessName}</Text>
+          </View>
           <TouchableOpacity 
-            style={styles.viewAllButton}
+            style={styles.logoContainer}
+            onPress={() => navigation.navigate('ProfileScreen')}
+          >
+            <Image 
+              source={require('../../assets/milk-icon.png')} 
+              style={styles.logo} 
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
+      
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.totalProducts}</Text>
+            <Text style={styles.statLabel}>Products</Text>
+          </View>
+        
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.pendingOrders}</Text>
+            <Text style={styles.statLabel}>Pending Orders</Text>
+          </View>
+        
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.totalOrders}</Text>
+            <Text style={styles.statLabel}>Total Orders</Text>
+          </View>
+        
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>₹{stats.revenue.toFixed(2)}</Text>
+            <Text style={styles.statLabel}>Revenue</Text>
+          </View>
+        </View>
+        
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('ProductManagementScreen')}
+          >
+            <Text style={styles.actionButtonText}>Manage Products</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionButton}
             onPress={() => navigation.navigate('OrderManagementScreen')}
           >
-            <Text style={styles.viewAllButtonText}>View All Orders</Text>
+            <Text style={styles.actionButtonText}>Manage Orders</Text>
           </TouchableOpacity>
-        )}
-      </View>
-    </ScrollView>
+        </View>
+        
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Recent Orders</Text>
+          
+          {orders.length > 0 ? (
+            <FlatList
+              data={orders.slice(0, 5)} // Show only the 5 most recent orders
+              renderItem={renderOrderItem}
+              keyExtractor={item => item.order_id}
+              scrollEnabled={false} // Disable scrolling as it's inside a ScrollView
+            />
+          ) : (
+            <Text style={styles.emptyText}>No orders yet</Text>
+          )}
+          
+          {orders.length > 5 && (
+            <TouchableOpacity 
+              style={styles.viewAllButton}
+              onPress={() => navigation.navigate('OrderManagementScreen')}
+            >
+              <Text style={styles.viewAllButtonText}>View All Orders</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9'
@@ -202,117 +231,125 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f9f9f9',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
     color: '#666'
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_L,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee'
+    borderBottomColor: '#eee',
+    ...getShadowStyles(2)
   },
   welcomeText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#666'
   },
   businessName: {
-    fontSize: 22,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
+  logoContainer: {
+    width: scale(44),
+    height: scale(44),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: SIZES.RADIUS_ROUND,
+    backgroundColor: '#f0f8ff'
+  },
   logo: {
-    width: 40,
-    height: 40
+    width: scale(30),
+    height: scale(30)
   },
   statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 8,
-    justifyContent: 'space-between'
+    padding: SIZES.PADDING_S,
+    justifyContent: 'space-between',
+    marginTop: SIZES.PADDING_S
   },
   statCard: {
     width: '48%',
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
-    margin: 4,
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    margin: SIZES.PADDING_XS,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    minHeight: verticalScale(100),
+    justifyContent: 'center',
+    ...getShadowStyles(2)
   },
   statValue: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#4e9af1',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666'
   },
   actionsContainer: {
-    padding: 16,
+    padding: SIZES.PADDING_M,
     flexDirection: 'row',
     justifyContent: 'space-between'
   },
   actionButton: {
     flex: 1,
     backgroundColor: '#4e9af1',
-    padding: 12,
-    borderRadius: 8,
-    marginHorizontal: 4,
-    alignItems: 'center'
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
+    marginHorizontal: SIZES.PADDING_XS,
+    alignItems: 'center',
+    minHeight: SIZES.BUTTON_HEIGHT,
+    justifyContent: 'center'
   },
   actionButtonText: {
     color: '#fff',
-    fontWeight: '500',
-    fontSize: 14
+    fontWeight: '600',
+    fontSize: SIZES.BODY
   },
   section: {
-    padding: 16
+    padding: SIZES.PADDING_M
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
     color: '#333'
   },
   orderCard: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
+    ...getShadowStyles(2)
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8
+    marginBottom: SIZES.PADDING_S
   },
   orderTitle: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333'
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4
+    paddingHorizontal: SIZES.PADDING_S,
+    paddingVertical: SIZES.PADDING_XS,
+    borderRadius: SIZES.RADIUS_S
   },
   pendingStatus: {
     backgroundColor: '#f0ad4e'
@@ -328,52 +365,61 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: '500'
+    fontSize: SIZES.SMALL,
+    fontWeight: '600'
   },
   orderDate: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   orderAmount: {
-    fontSize: 15,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 12
+    marginBottom: SIZES.PADDING_M
   },
   orderActions: {
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    paddingTop: 12,
+    paddingTop: SIZES.PADDING_M,
     flexDirection: 'row',
     justifyContent: 'flex-end'
   },
   orderActionButton: {
     backgroundColor: '#f8f9fa',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
+    paddingVertical: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
     borderWidth: 1,
-    borderColor: '#ddd'
+    borderColor: '#ddd',
+    minHeight: verticalScale(36),
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   orderActionButtonText: {
     color: '#495057',
-    fontSize: 14
+    fontSize: SIZES.CAPTION,
+    fontWeight: '500'
   },
   emptyText: {
     textAlign: 'center',
     color: '#666',
-    padding: 20
+    padding: SIZES.PADDING_L,
+    fontSize: SIZES.BODY
   },
   viewAllButton: {
     alignItems: 'center',
-    padding: 12,
-    marginTop: 8
+    padding: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_S,
+    backgroundColor: '#fff',
+    borderRadius: SIZES.RADIUS_M,
+    ...getShadowStyles(1)
   },
   viewAllButtonText: {
     color: '#4e9af1',
-    fontWeight: '500'
+    fontWeight: '600',
+    fontSize: SIZES.BODY
   }
 });
 

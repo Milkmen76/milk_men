@@ -109,6 +109,50 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Reset password function
+  const resetPassword = async (email) => {
+    try {
+      // Check if the email exists in the system
+      const userExists = await localData.getUserByEmail(email);
+      if (!userExists) {
+        return { success: false, message: 'Email not found' };
+      }
+      
+      // In a real app, this would send an email with a reset link
+      // For this demo, we'll just simulate success
+      console.log(`Password reset requested for email: ${email}`);
+      
+      return { success: true, message: 'Password reset instructions sent' };
+    } catch (error) {
+      console.error('Reset password error:', error);
+      return { success: false, message: 'Reset password failed' };
+    }
+  };
+  
+  // Change password function
+  const changePassword = async (oldPassword, newPassword) => {
+    if (!user) return { success: false, message: 'No user logged in' };
+    
+    try {
+      // Verify old password
+      const verifyResult = await localData.verifyPassword(user.id, oldPassword);
+      if (!verifyResult.success) {
+        return { success: false, message: 'Current password is incorrect' };
+      }
+      
+      // Update password
+      const updateResult = await localData.updatePassword(user.id, newPassword);
+      if (updateResult.success) {
+        return { success: true, message: 'Password updated successfully' };
+      } else {
+        return { success: false, message: updateResult.message || 'Failed to update password' };
+      }
+    } catch (error) {
+      console.error('Change password error:', error);
+      return { success: false, message: 'Password change failed' };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -116,7 +160,9 @@ export const AuthProvider = ({ children }) => {
       login,
       signup,
       logout,
-      updateUserData
+      updateUserData,
+      resetPassword,
+      changePassword
     }}>
       {children}
     </AuthContext.Provider>

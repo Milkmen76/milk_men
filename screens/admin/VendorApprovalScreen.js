@@ -9,8 +9,10 @@ import {
   Alert,
   TextInput,
   SafeAreaView,
-  Platform
+  Platform,
+  StatusBar
 } from 'react-native';
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
@@ -125,139 +127,202 @@ const VendorApprovalScreen = () => {
                 Address: {item.profile_info.address}
               </Text>
             )}
+            {item.profile_info.phone && (
+              <Text style={styles.profileInfoText}>
+                Phone: {item.profile_info.phone}
+              </Text>
+            )}
           </View>
         )}
       </View>
       
-      <View style={styles.actionButtons}>
-        {(!item.approval_status || item.approval_status === 'pending' || item.approval_status === 'rejected') && (
-          <TouchableOpacity
+      {/* Only show action buttons for pending vendors */}
+      {(!item.approval_status || item.approval_status === 'pending') && (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
             style={[styles.actionButton, styles.approveButton]}
             onPress={() => handleApprove(item)}
           >
             <Text style={styles.buttonText}>Approve</Text>
           </TouchableOpacity>
-        )}
-        
-        {(!item.approval_status || item.approval_status === 'pending' || item.approval_status === 'approved') && (
-          <TouchableOpacity
+          <TouchableOpacity 
             style={[styles.actionButton, styles.rejectButton]}
             onPress={() => handleReject(item)}
           >
             <Text style={styles.buttonText}>Reject</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
     </View>
   );
 
   const renderFilterTabs = () => (
     <View style={styles.filterTabs}>
-      {['pending', 'approved', 'rejected'].map(tab => (
-        <TouchableOpacity
-          key={tab}
-          style={[
-            styles.filterTab,
-            activeTab === tab && styles.activeFilterTab
-          ]}
-          onPress={() => setActiveTab(tab)}
-        >
-          <Text style={[
-            styles.filterTabText,
-            activeTab === tab && styles.activeFilterTabText
-          ]}>
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </Text>
-        </TouchableOpacity>
-      ))}
+      <TouchableOpacity
+        style={[
+          styles.filterTab,
+          activeTab === 'pending' && styles.activeFilterTab
+        ]}
+        onPress={() => setActiveTab('pending')}
+      >
+        <Text style={[
+          styles.filterTabText,
+          activeTab === 'pending' && styles.activeFilterTabText
+        ]}>Pending</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.filterTab,
+          activeTab === 'approved' && styles.activeFilterTab
+        ]}
+        onPress={() => setActiveTab('approved')}
+      >
+        <Text style={[
+          styles.filterTabText,
+          activeTab === 'approved' && styles.activeFilterTabText
+        ]}>Approved</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.filterTab,
+          activeTab === 'rejected' && styles.activeFilterTab
+        ]}
+        onPress={() => setActiveTab('rejected')}
+      >
+        <Text style={[
+          styles.filterTabText,
+          activeTab === 'rejected' && styles.activeFilterTabText
+        ]}>Rejected</Text>
+      </TouchableOpacity>
     </View>
   );
 
-  
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading vendors...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+        <View style={styles.container}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4e9af1" />
+            <Text style={styles.loadingText}>Loading vendors...</Text>
+          </View>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>Vendor Approvals</Text>
-          <TouchableOpacity 
-            style={styles.signOutButton}
-            onPress={() => {
-              Alert.alert(
-                'Sign Out',
-                'Are you sure you want to sign out?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Sign Out', onPress: logout, style: 'destructive' }
-                ]
-              );
-            }}
-          >
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Vendor Approvals</Text>
+            <TouchableOpacity 
+              style={styles.signOutButton}
+              onPress={() => {
+                Alert.alert(
+                  'Sign Out',
+                  'Are you sure you want to sign out?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Sign Out', onPress: logout, style: 'destructive' }
+                  ]
+                );
+              }}
+            >
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => navigation.navigate('UserListScreen')}
+            >
+              <Text style={styles.navButtonText}>Users</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => navigation.navigate('ProductListScreen')}
+            >
+              <Text style={styles.navButtonText}>Products</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => navigation.navigate('TransactionListScreen')}
+            >
+              <Text style={styles.navButtonText}>Transactions</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => navigation.navigate('ProfileScreen')}
+            >
+              <Text style={styles.navButtonText}>Dashboard</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         
-      </View>
-      
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search vendors by name or email..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          clearButtonMode="while-editing"
-        />
-      </View>
-      
-      {renderFilterTabs()}
-      
-      {filteredVendors.length > 0 ? (
-        <FlatList
-          data={filteredVendors}
-          renderItem={renderVendorItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          refreshing={refreshing}
-          onRefresh={loadVendors}
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No vendors found</Text>
-          <Text style={styles.emptySubtext}>
-            {searchQuery 
-              ? `No results matching "${searchQuery}"`
-              : activeTab === 'pending'
-                ? 'No pending vendor approvals'
-                : activeTab === 'approved'
-                  ? 'No approved vendors'
-                  : 'No rejected vendors'}
-          </Text>
-          {searchQuery && (
-            <TouchableOpacity 
-              style={styles.clearSearchButton}
-              onPress={() => setSearchQuery('')}
-            >
-              <Text style={styles.clearSearchText}>Clear Search</Text>
-            </TouchableOpacity>
-          )}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search vendors by name or email..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+          />
         </View>
-      )}
+        
+        {renderFilterTabs()}
+        
+        {filteredVendors.length > 0 ? (
+          <FlatList
+            data={filteredVendors}
+            renderItem={renderVendorItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContainer}
+            refreshing={refreshing}
+            onRefresh={loadVendors}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No vendors found</Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery 
+                ? `No results matching "${searchQuery}"`
+                : activeTab === 'pending'
+                  ? 'No pending vendor approvals'
+                  : activeTab === 'approved'
+                    ? 'No approved vendors'
+                    : 'No rejected vendors'}
+            </Text>
+            {searchQuery && (
+              <TouchableOpacity 
+                style={styles.clearSearchButton}
+                onPress={() => setSearchQuery('')}
+              >
+                <Text style={styles.clearSearchText}>Clear Search</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1, 
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f5f7fa'
   },
   loadingContainer: {
     flex: 1,
@@ -265,168 +330,140 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: SIZES.PADDING_S,
+    fontSize: SIZES.BODY,
     color: '#666'
   },
   header: {
     backgroundColor: '#fff',
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: SIZES.PADDING_M,
+    paddingBottom: SIZES.PADDING_M,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2)
   },
   titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 12
+    paddingHorizontal: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M
   },
   title: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
   signOutButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#ff5252'
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    backgroundColor: '#ff5252',
+    minHeight: verticalScale(30),
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   signOutText: {
     color: '#fff',
-    fontWeight: '600'
+    fontWeight: '600',
+    fontSize: SIZES.CAPTION
   },
   headerButtons: {
     flexDirection: 'row',
-    paddingHorizontal: 8,
+    paddingHorizontal: SIZES.PADDING_S,
     flexWrap: 'wrap',
     justifyContent: 'center'
   },
   navButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginHorizontal: 4,
-    marginBottom: 8,
-    borderRadius: 6,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    marginHorizontal: SIZES.PADDING_XS,
+    marginBottom: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
     backgroundColor: '#f0f0f0',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    minHeight: verticalScale(32),
+    minWidth: scale(80),
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...getShadowStyles(1)
   },
   navButtonText: {
     color: '#333',
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: SIZES.CAPTION
   },
   searchContainer: {
-    padding: 12,
+    padding: SIZES.PADDING_M,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee'
   },
   searchInput: {
-    height: 40,
+    height: SIZES.INPUT_HEIGHT,
     backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 15,
+    borderRadius: SIZES.RADIUS_S,
+    paddingHorizontal: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
     color: '#333'
   },
   filterTabs: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_S,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    ...getShadowStyles(1)
   },
   filterTab: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
-    marginHorizontal: 4,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0'
+    paddingVertical: SIZES.PADDING_XS,
+    marginHorizontal: SIZES.PADDING_XS,
+    borderRadius: SIZES.RADIUS_S,
+    backgroundColor: '#f0f0f0',
+    minHeight: verticalScale(36),
+    justifyContent: 'center'
   },
   activeFilterTab: {
     backgroundColor: '#4e9af1'
   },
   filterTabText: {
     fontWeight: '500',
-    color: '#666'
+    color: '#666',
+    fontSize: SIZES.CAPTION
   },
   activeFilterTabText: {
     color: '#fff'
   },
   listContainer: {
-    padding: 16
+    padding: SIZES.PADDING_M
   },
   vendorCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
+    ...getShadowStyles(3)
   },
   vendorInfo: {
-    marginBottom: 16
+    marginBottom: SIZES.PADDING_M
   },
   vendorName: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   vendorEmail: {
-    fontSize: 14,
+    fontSize: SIZES.BODY,
     color: '#666',
-    marginBottom: 12
+    marginBottom: SIZES.PADDING_M
   },
   vendorDetail: {
-    fontSize: 14,
+    fontSize: SIZES.BODY,
     color: '#555',
-    marginBottom: 6
+    marginBottom: SIZES.PADDING_XS
   },
   statusText: {
     fontWeight: '600'
@@ -442,41 +479,35 @@ const styles = StyleSheet.create({
   },
   profileInfo: {
     backgroundColor: '#f8f8f8',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
+    marginTop: SIZES.PADDING_M
   },
   profileInfoTitle: {
-    fontSize: 14,
+    fontSize: SIZES.BODY,
     fontWeight: '600',
     color: '#444',
-    marginBottom: 8
+    marginBottom: SIZES.PADDING_S
   },
   profileInfoText: {
-    fontSize: 13,
+    fontSize: SIZES.CAPTION,
     color: '#555',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end'
   },
   actionButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginLeft: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    paddingVertical: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
+    marginLeft: SIZES.PADDING_S,
+    minHeight: verticalScale(36),
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: scale(80),
+    ...getShadowStyles(2)
   },
   approveButton: {
     backgroundColor: '#5cb85c'
@@ -487,35 +518,40 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14
+    fontSize: SIZES.CAPTION
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: SIZES.PADDING_L
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8
+    marginBottom: SIZES.PADDING_S
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: SIZES.BODY,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 16
+    marginBottom: SIZES.PADDING_M
   },
   clearSearchButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_M,
     backgroundColor: '#4e9af1',
-    borderRadius: 6
+    borderRadius: SIZES.RADIUS_S,
+    minHeight: SIZES.BUTTON_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...getShadowStyles(2)
   },
   clearSearchText: {
     color: '#fff',
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: SIZES.BODY
   }
 });
 

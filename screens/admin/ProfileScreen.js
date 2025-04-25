@@ -8,8 +8,10 @@ import {
   SafeAreaView, 
   ActivityIndicator,
   Platform,
-  Image
+  Image,
+  StatusBar
 } from 'react-native';
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
@@ -176,114 +178,97 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fa'
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollView: {
     flex: 1,
+    paddingBottom: SIZES.PADDING_L
   },
   scrollContent: {
-    paddingBottom: 30
+    paddingBottom: SIZES.PADDING_L
   },
   header: {
-    paddingVertical: 24,
-    paddingHorizontal: 20,
+    paddingVertical: SIZES.PADDING_L,
+    paddingHorizontal: SIZES.PADDING_M,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2),
   },
   title: {
-    fontSize: 28,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
   profileCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 20,
-    borderRadius: 16,
-    padding: 20,
+    marginHorizontal: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_L,
+    borderRadius: SIZES.RADIUS_L,
+    padding: SIZES.PADDING_M,
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.12,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    ...getShadowStyles(3),
   },
   profileImageContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: scale(70),
+    height: scale(70),
+    borderRadius: scale(35),
     backgroundColor: '#f0f8ff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16
+    marginRight: SIZES.PADDING_M
   },
   profileImage: {
-    width: 40,
-    height: 40
+    width: scale(40),
+    height: scale(40)
   },
   profileInfo: {
     flex: 1
   },
   profileName: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_S
   },
   profileEmail: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
-    marginBottom: 8
+    marginBottom: SIZES.PADDING_S
   },
   roleBadge: {
     backgroundColor: '#d9534f',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
+    paddingHorizontal: SIZES.PADDING_S,
+    paddingVertical: SIZES.PADDING_XS,
+    borderRadius: SIZES.RADIUS_S,
     alignSelf: 'flex-start'
   },
   roleText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: SIZES.SMALL,
     fontWeight: '600'
   },
   loadingContainer: {
-    padding: 30,
+    padding: SIZES.PADDING_L,
     alignItems: 'center'
   },
   loadingText: {
-    marginTop: 10,
-    color: '#666'
+    marginTop: SIZES.PADDING_M,
+    color: '#666',
+    fontSize: SIZES.BODY
   },
   statsContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 20
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_L
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
-    marginLeft: 4
+    marginBottom: SIZES.PADDING_M,
+    marginLeft: SIZES.PADDING_XS
   },
   statsGrid: {
     flexDirection: 'row',
@@ -293,80 +278,50 @@ const styles = StyleSheet.create({
   statCard: {
     backgroundColor: '#fff',
     width: '48%',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2),
   },
   statValue: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#4e9af1',
-    marginBottom: 6
+    marginBottom: SIZES.PADDING_XS
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666'
   },
   navigationSection: {
-    padding: 16,
-    marginTop: 10
+    padding: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_S
   },
   navButton: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
     flexDirection: 'row',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2),
   },
   navButtonText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333'
   },
   signOutButton: {
     backgroundColor: '#ff5252',
-    borderRadius: 10,
-    padding: 16,
-    marginTop: 10,
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_S,
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    ...getShadowStyles(2),
   },
   signOutText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '600',
     color: '#fff'
   }

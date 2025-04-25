@@ -10,8 +10,10 @@ import {
   TextInput,
   SafeAreaView,
   Platform,
-  Animated
+  Animated,
+  StatusBar
 } from 'react-native';
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
@@ -233,86 +235,94 @@ const UserListScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading users...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading users...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>User Management</Text>
-          <TouchableOpacity 
-            style={styles.signOutButton}
-            onPress={() => {
-              Alert.alert(
-                'Sign Out',
-                'Are you sure you want to sign out?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Sign Out', onPress: logout, style: 'destructive' }
-                ]
-              );
-            }}
-          >
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>User Management</Text>
+            <TouchableOpacity 
+              style={styles.signOutButton}
+              onPress={() => {
+                Alert.alert(
+                  'Sign Out',
+                  'Are you sure you want to sign out?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Sign Out', onPress: logout, style: 'destructive' }
+                  ]
+                );
+              }}
+            >
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name or email..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+          />
         </View>
         
+        {renderFilterTabs()}
+        
+        {filteredUsers().length > 0 ? (
+          <FlatList
+            data={filteredUsers()}
+            renderItem={renderUserItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            refreshing={refreshing}
+            onRefresh={loadUsers}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No users found</Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery
+                ? `No results matching "${searchQuery}"`
+                : `No ${activeFilter !== 'all' ? activeFilter : ''} users available`}
+            </Text>
+            {searchQuery && (
+              <TouchableOpacity 
+                style={styles.clearSearchButton}
+                onPress={() => setSearchQuery('')}
+              >
+                <Text style={styles.clearSearchText}>Clear Search</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
-      
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name or email..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          clearButtonMode="while-editing"
-        />
-      </View>
-      
-      {renderFilterTabs()}
-      
-      {filteredUsers().length > 0 ? (
-        <FlatList
-          data={filteredUsers()}
-          renderItem={renderUserItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          refreshing={refreshing}
-          onRefresh={loadUsers}
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No users found</Text>
-          <Text style={styles.emptySubtext}>
-            {searchQuery 
-              ? `No results matching "${searchQuery}"`
-              : activeFilter !== 'all' 
-                ? `No ${activeFilter}s are currently registered`
-                : 'There are no users in the system'}
-          </Text>
-          {searchQuery && (
-            <TouchableOpacity 
-              style={styles.clearSearchButton}
-              onPress={() => setSearchQuery('')}
-            >
-              <Text style={styles.clearSearchText}>Clear Search</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f5f7fa'
   },
   loadingContainer: {
     flex: 1,
@@ -320,239 +330,216 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666'
+    marginTop: SIZES.PADDING_S,
+    color: '#666',
+    fontSize: SIZES.BODY
   },
   header: {
     backgroundColor: '#fff',
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: SIZES.PADDING_M,
+    paddingBottom: SIZES.PADDING_M,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2)
   },
   titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 12
+    paddingHorizontal: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M
   },
   title: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
   signOutButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#ff5252'
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    backgroundColor: '#ff5252',
+    minHeight: verticalScale(30),
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   signOutText: {
     color: '#fff',
-    fontWeight: '600'
+    fontWeight: '600',
+    fontSize: SIZES.CAPTION
   },
   headerButtons: {
     flexDirection: 'row',
-    paddingHorizontal: 8,
+    paddingHorizontal: SIZES.PADDING_S,
     flexWrap: 'wrap',
     justifyContent: 'center'
   },
   navButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginHorizontal: 4,
-    marginBottom: 8,
-    borderRadius: 6,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    marginHorizontal: SIZES.PADDING_XS,
+    marginBottom: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
     backgroundColor: '#f0f0f0',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    minHeight: verticalScale(32),
+    minWidth: scale(80),
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...getShadowStyles(1)
   },
   navButtonText: {
     color: '#333',
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: SIZES.CAPTION
   },
   searchContainer: {
-    padding: 12,
+    padding: SIZES.PADDING_M,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee'
   },
   searchInput: {
-    height: 40,
+    height: SIZES.INPUT_HEIGHT,
     backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 15,
+    borderRadius: SIZES.RADIUS_S,
+    paddingHorizontal: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
     color: '#333'
   },
   filterTabs: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    padding: 12,
+    padding: SIZES.PADDING_S,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    ...getShadowStyles(1)
   },
   filterTab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: SIZES.PADDING_S,
     alignItems: 'center',
     borderBottomWidth: 2,
-    borderBottomColor: 'transparent'
+    borderBottomColor: 'transparent',
+    minHeight: verticalScale(36),
+    justifyContent: 'center'
   },
   activeFilterTab: {
     borderBottomColor: '#4e9af1'
   },
   filterText: {
     color: '#666',
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: SIZES.CAPTION
   },
   activeFilterText: {
     color: '#4e9af1'
   },
   listContainer: {
-    padding: 16
+    padding: SIZES.PADDING_M
   },
   userCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
+    ...getShadowStyles(3)
   },
   userHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: SIZES.PADDING_M
   },
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center'
   },
   userName: {
-    fontSize: 16,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333'
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginLeft: 8
+    width: scale(8),
+    height: scale(8),
+    borderRadius: scale(4),
+    marginLeft: SIZES.PADDING_S
   },
   roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6
+    paddingHorizontal: SIZES.PADDING_S,
+    paddingVertical: SIZES.PADDING_XS,
+    borderRadius: SIZES.RADIUS_S
   },
   roleText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: SIZES.SMALL,
     fontWeight: '600'
   },
   userInfo: {
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    paddingTop: 12,
-    marginTop: 4
+    paddingTop: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_XS
   },
   userEmail: {
-    fontSize: 14,
+    fontSize: SIZES.BODY,
     color: '#666',
-    marginBottom: 8
+    marginBottom: SIZES.PADDING_S
   },
   userDetail: {
-    fontSize: 13,
+    fontSize: SIZES.CAPTION,
     color: '#777',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   businessInfoContainer: {
     backgroundColor: '#f8f8f8',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 10,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
+    marginTop: SIZES.PADDING_M,
   },
   businessInfoTitle: {
-    fontSize: 13,
+    fontSize: SIZES.CAPTION,
     fontWeight: '600',
     color: '#444',
-    marginBottom: 6
+    marginBottom: SIZES.PADDING_XS
   },
   businessInfoText: {
-    fontSize: 12,
+    fontSize: SIZES.SMALL,
     color: '#666',
-    marginBottom: 3
+    marginBottom: SIZES.PADDING_XXS
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: SIZES.PADDING_L
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8
+    marginBottom: SIZES.PADDING_S
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: SIZES.BODY,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 16
+    marginBottom: SIZES.PADDING_M
   },
   clearSearchButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_M,
     backgroundColor: '#4e9af1',
-    borderRadius: 6
+    borderRadius: SIZES.RADIUS_S,
+    minHeight: SIZES.BUTTON_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...getShadowStyles(2)
   },
   clearSearchText: {
     color: '#fff',
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: SIZES.BODY
   }
 });
 

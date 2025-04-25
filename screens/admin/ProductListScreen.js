@@ -7,8 +7,12 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert
+  Alert,
+  SafeAreaView,
+  StatusBar,
+  Platform
 } from 'react-native';
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
@@ -145,15 +149,20 @@ const ProductListScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading products...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading products...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+      <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Text style={styles.title}>All Products</Text>
@@ -192,11 +201,17 @@ const ProductListScreen = () => {
           <Text style={styles.emptySubtext}>There are no products in the system</Text>
         </View>
       )}
-    </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9'
@@ -207,119 +222,132 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: SIZES.PADDING_S,
+    fontSize: SIZES.BODY,
     color: '#666'
   },
   header: {
     backgroundColor: '#fff',
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: SIZES.PADDING_M,
+    paddingBottom: SIZES.PADDING_S,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee'
+    borderBottomColor: '#eee',
+    ...getShadowStyles(2)
   },
   titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 12
+    paddingHorizontal: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M
   },
   title: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
   signOutButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    backgroundColor: '#ff5252'
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    backgroundColor: '#ff5252',
+    minHeight: verticalScale(30),
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   signOutText: {
     color: '#fff',
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: SIZES.CAPTION
   },
   headerButtons: {
     flexDirection: 'row',
-    paddingHorizontal: 8
+    paddingHorizontal: SIZES.PADDING_S,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between'
   },
   navButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginHorizontal: 4,
-    borderRadius: 4,
-    backgroundColor: '#f0f0f0'
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    marginHorizontal: SIZES.PADDING_XS,
+    marginBottom: SIZES.PADDING_XS,
+    borderRadius: SIZES.RADIUS_S,
+    backgroundColor: '#f0f0f0',
+    minWidth: scale(70),
+    minHeight: verticalScale(32),
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   navButtonText: {
     color: '#333',
-    fontWeight: '500'
+    fontWeight: '500',
+    fontSize: SIZES.CAPTION
   },
   listContainer: {
-    padding: 16
+    padding: SIZES.PADDING_M
   },
   productCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
+    marginBottom: SIZES.PADDING_M,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    ...getShadowStyles(2)
   },
   productImage: {
-    width: 60,
-    height: 60,
-    marginRight: 12
+    width: scale(60),
+    height: scale(60),
+    marginRight: SIZES.PADDING_M
   },
   productInfo: {
     flex: 1
   },
   productName: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   productPrice: {
-    fontSize: 15,
+    fontSize: SIZES.SUBTITLE,
     color: '#4e9af1',
     fontWeight: 'bold',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   vendorName: {
-    fontSize: 13,
+    fontSize: SIZES.CAPTION,
     color: '#666'
   },
   deleteButton: {
     backgroundColor: '#d9534f',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 4
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    minHeight: verticalScale(32),
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...getShadowStyles(1)
   },
   deleteButtonText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: SIZES.CAPTION,
     fontWeight: '500'
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: SIZES.PADDING_L
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8
+    marginBottom: SIZES.PADDING_S
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: SIZES.BODY,
     color: '#666',
     textAlign: 'center'
   }

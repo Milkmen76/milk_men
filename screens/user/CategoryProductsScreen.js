@@ -7,7 +7,10 @@ import {
   TouchableOpacity, 
   Image, 
   ActivityIndicator,
-  Alert
+  Alert,
+  SafeAreaView,
+  Platform,
+  StatusBar
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as localData from '../../services/localData';
@@ -18,6 +21,9 @@ const imageMap = {
   "milk1.jpg": require('../../assets/milk-icon.png'),
   "milk2.jpg": require('../../assets/milk-icon.png'),
 };
+
+// Import responsive utility functions
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 const CategoryProductsScreen = () => {
   const navigation = useNavigation();
@@ -225,7 +231,8 @@ const CategoryProductsScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
       <View style={styles.categoryHeader}>
         <Text style={styles.categoryName}>{categoryName || 'Products'}</Text>
         <Text style={styles.productCount}>{products.length} products found</Text>
@@ -262,35 +269,40 @@ const CategoryProductsScreen = () => {
         </View>
       )}
     </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: { 
     flex: 1, 
     backgroundColor: '#f5f7fa',
-    padding: 16 
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_M,
+    paddingBottom: 0,
   },
   categoryHeader: {
     backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_L,
+    marginBottom: SIZES.PADDING_L,
+    ...getShadowStyles(3),
   },
   categoryName: {
-    fontSize: 22,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 6,
-    textTransform: 'capitalize'
+    marginBottom: SIZES.PADDING_XS,
+    textTransform: 'capitalize',
   },
   productCount: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666'
   },
   listContent: {
@@ -298,60 +310,58 @@ const styles = StyleSheet.create({
   },
   productCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
     flexDirection: 'row',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2
+    ...getShadowStyles(2),
   },
   productImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
+    width: scale(80),
+    height: scale(80),
+    borderRadius: SIZES.RADIUS_M,
     overflow: 'hidden',
     backgroundColor: '#f0f8ff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12
+    marginRight: SIZES.PADDING_M
   },
   productImage: {
-    width: 60,
-    height: 60
+    width: scale(60),
+    height: scale(60)
   },
   productInfo: {
     flex: 1
   },
   productName: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
     color: '#333'
   },
   vendorNameText: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#4e9af1',
-    marginBottom: 8
+    marginBottom: SIZES.PADDING_S
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12
+    marginBottom: SIZES.PADDING_M
   },
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center'
   },
   quantityButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: SIZES.ICON_BUTTON,
+    height: SIZES.ICON_BUTTON,
+    borderRadius: SIZES.RADIUS_ROUND,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    minWidth: SIZES.ICON_BUTTON,
+    minHeight: SIZES.ICON_BUTTON,
   },
   removeButton: {
     backgroundColor: '#ff6b6b'
@@ -364,15 +374,15 @@ const styles = StyleSheet.create({
   },
   quantityButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold'
   },
   quantityContainer: {
-    width: 40,
+    width: SIZES.ICON_BUTTON,
     alignItems: 'center'
   },
   quantityText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333'
   },
@@ -385,57 +395,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: SIZES.PADDING_M,
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5
+    paddingBottom: Platform.OS === 'ios' ? SIZES.PADDING_L : SIZES.PADDING_M,
+    ...getShadowStyles(5),
   },
   cartInfo: {
     flex: 1
   },
   cartText: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666'
   },
   cartPrice: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333'
   },
   orderButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8
+    paddingVertical: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_L,
+    borderRadius: SIZES.RADIUS_M,
+    minHeight: SIZES.BUTTON_HEIGHT,
+    minWidth: scale(120),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   orderButtonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16
+    fontSize: SIZES.BODY
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f7fa'
+    backgroundColor: '#f5f7fa',
+    paddingHorizontal: SIZES.PADDING_M,
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
     color: '#666'
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100
+    paddingBottom: verticalScale(100)
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#666',
     textAlign: 'center'
   }

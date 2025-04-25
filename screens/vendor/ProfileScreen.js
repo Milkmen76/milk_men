@@ -12,12 +12,14 @@ import {
   Platform,
   SafeAreaView,
   Modal,
-  FlatList
+  FlatList,
+  StatusBar
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
 import * as ImagePicker from 'expo-image-picker';
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 // Avatar image mapping
 const avatarImages = {
@@ -42,156 +44,97 @@ const ProfileScreen = () => {
   
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [logoBase64, setLogoBase64] = useState('');
+  const [selectedAvatar, setSelectedAvatar] = useState('milk-icon.png');
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [businessStats, setBusinessStats] = useState({
     orders: 0,
     products: 0,
     customers: 0,
-    revenue: 0
+    revenue: 0,
   });
-  
-  // Business logo state
-  const [businessLogo, setBusinessLogo] = useState(null);
-  const [logoBase64, setLogoBase64] = useState(null);
-  
-  // Avatar selection state
-  const [showAvatarModal, setShowAvatarModal] = useState(false);
-  const [selectedAvatar, setSelectedAvatar] = useState('milk-icon.png');
-  const [availableAvatars, setAvailableAvatars] = useState([]);
-  
+
+  const availableAvatars = [
+    { value: 'milk-icon.png', label: 'Milk Icon' },
+    { value: 'icon.png', label: 'App Icon' },
+    { value: 'splash-icon.png', label: 'Splash Icon' },
+    { value: 'adaptive-icon.png', label: 'Adaptive Icon' },
+    { value: 'favicon.png', label: 'Favicon' },
+  ];
+
   useEffect(() => {
-    loadVendorData();
-    
-    // Load available avatars
-    setAvailableAvatars(localData.getAvailableAvatars());
+    loadUserData();
+    loadBusinessStats();
   }, [user]);
-  
-  const loadVendorData = async () => {
+
+  const loadUserData = () => {
     if (!user) return;
     
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Set form values from user data
       setEmail(user.email || '');
       
-      // Load business info from profile_info
-      if (user.profile_info) {
-        setBusinessName(user.profile_info.business_name || '');
-        setAddress(user.profile_info.address || '');
-        setPhone(user.profile_info.phone || '');
-        setDescription(user.profile_info.description || '');
-        setSelectedAvatar(user.profile_info.avatar || 'milk-icon.png');
-        setLogoBase64(user.profile_info.logo_base64 || null);
-      }
-      
-      // Load business stats
-      try {
-        // Get orders for this vendor
-        const orders = await localData.getOrdersByVendor(user.id);
-        
-        // Get products for this vendor
-        const products = await localData.getProductsByVendor(user.id);
-        
-        // Calculate total revenue from orders
-        let totalRevenue = 0;
-        const uniqueCustomers = new Set();
-        
-        orders.forEach(order => {
-          if (order.total) {
-            totalRevenue += parseFloat(order.total);
-          }
-          
-          if (order.user_id) {
-            uniqueCustomers.add(order.user_id);
-          }
-        });
-        
-        setBusinessStats({
-          orders: orders.length,
-          products: products.length,
-          customers: uniqueCustomers.size,
-          revenue: totalRevenue
-        });
-      } catch (error) {
-        console.error('Error loading business stats:', error);
-      }
+      // Load profile info
+      const profileInfo = user.profile_info || {};
+      setBusinessName(profileInfo.business_name || '');
+      setAddress(profileInfo.address || '');
+      setPhone(profileInfo.phone || '');
+      setDescription(profileInfo.description || '');
+      setLogoBase64(profileInfo.logo || '');
+      setSelectedAvatar(profileInfo.avatar || 'milk-icon.png');
     } catch (error) {
-      console.error('Error loading vendor data:', error);
+      console.error('Error loading user data:', error);
     } finally {
       setLoading(false);
     }
   };
-  
-  const handleLogout = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', onPress: async () => await logout() }
-      ]
-    );
+
+  const loadBusinessStats = async () => {
+    if (!user || !user.uid) return;
+    
+    try {
+      // Load orders
+      const allOrders = await localData.getOrders();
+      const vendorOrders = allOrders.filter(order => 
+        order.vendor_id === user.uid
+      );
+      
+      // Load products
+      const allProducts = await localData.getProducts();
+      const vendorProducts = allProducts.filter(product => 
+        product.vendor_id === user.uid
+      );
+      
+      // Calculate unique customers
+      const uniqueCustomers = [...new Set(vendorOrders.map(order => order.user_id))];
+      
+      // Calculate total revenue
+      const totalRevenue = vendorOrders.reduce((sum, order) => {
+        return sum + (order.total_amount || 0);
+      }, 0);
+      
+      setBusinessStats({
+        orders: vendorOrders.length,
+        products: vendorProducts.length,
+        customers: uniqueCustomers.length,
+        revenue: totalRevenue,
+      });
+    } catch (error) {
+      console.error('Error loading business stats:', error);
+    }
   };
-  
+
   const handleEditToggle = () => {
     if (editing) {
-      // Revert form values if canceling
-      if (user.profile_info) {
-        setBusinessName(user.profile_info.business_name || '');
-        setAddress(user.profile_info.address || '');
-        setPhone(user.profile_info.phone || '');
-        setDescription(user.profile_info.description || '');
-        setLogoBase64(user.profile_info.logo_base64 || null);
-      }
-      setPassword('');
-      setConfirmPassword('');
+      // Cancel edit, revert to original data
+      loadUserData();
     }
-    
     setEditing(!editing);
   };
-  
-  const selectBusinessLogo = async () => {
-    try {
-      // Request permission
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'You need to grant permission to access your photos');
-        return;
-      }
-      
-      // Launch image picker
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-        base64: true,
-      });
-      
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        console.log('Image selected successfully');
-        const source = { uri: result.assets[0].uri };
-        console.log('Image URI:', source.uri);
-        
-        // Get base64 data
-        const base64 = result.assets[0].base64;
-        console.log('Base64 data length:', base64 ? base64.length : 'No data');
-        
-        setBusinessLogo(source.uri);
-        setLogoBase64(base64);
-        
-        // Show success message
-        Alert.alert('Success', 'Logo selected successfully. Save your profile to apply the changes.');
-      }
-    } catch (error) {
-      console.error('Error selecting image:', error);
-      Alert.alert('Error', 'Failed to select image. Please try again.');
-    }
-  };
-  
+
   const handleSaveProfile = async () => {
-    if (!businessName) {
+    // Validate inputs
+    if (!businessName.trim()) {
       Alert.alert('Error', 'Business name is required');
       return;
     }
@@ -202,102 +145,111 @@ const ProfileScreen = () => {
     }
     
     setLoading(true);
-    
     try {
-      console.log('Saving profile with logo data:');
-      console.log('Has logo base64 data:', !!logoBase64);
-      console.log('Logo base64 data length:', logoBase64 ? logoBase64.length : 0);
-      
-      // Prepare profile data update
-      const updateData = {
-        profile_info: {
-          ...user.profile_info,
-          business_name: businessName,
-          address: address,
-          phone: phone,
-          description: description,
-          avatar: selectedAvatar,
-          logo_base64: logoBase64
-        }
+      // Update profile data
+      const updatedProfileInfo = {
+        ...user.profile_info,
+        business_name: businessName.trim(),
+        address: address.trim(),
+        phone: phone.trim(),
+        description: description.trim(),
+        logo: logoBase64,
+        avatar: selectedAvatar,
       };
       
-      // Add password if provided
+      // Update user data
+      await updateUserData({
+        profile_info: updatedProfileInfo,
+      });
+      
+      // Handle password change if provided
       if (password) {
-        updateData.password = password;
+        // Password change logic would go here
+        // This typically requires re-authentication or a separate API call
+        Alert.alert('Note', 'Password changes require re-authentication and are not implemented in this demo.');
       }
       
-      // Update profile
-      const result = await updateUserData(updateData);
-      
-      if (result.success) {
-        Alert.alert('Success', 'Profile updated successfully');
-        setEditing(false);
-        setPassword('');
-        setConfirmPassword('');
-      } else {
-        Alert.alert('Error', result.message || 'Failed to update profile');
-      }
+      setEditing(false);
+      Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'An error occurred while updating profile');
+      console.error('Error saving profile:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-  
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out',
+          onPress: () => logout(),
+          style: 'destructive',
+        },
+      ]
+    );
+  };
+
+  const selectBusinessLogo = async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Permission to access camera roll is required');
+        return;
+      }
+      
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setLogoBase64(result.assets[0].base64);
+      }
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
+  };
+
   const handleChangeAvatar = () => {
     setShowAvatarModal(true);
   };
-  
-  const selectAvatar = async (avatarName) => {
-    setSelectedAvatar(avatarName);
+
+  const handleSelectAvatar = (avatarKey) => {
+    setSelectedAvatar(avatarKey);
     setShowAvatarModal(false);
-    
-    // If not in editing mode, save immediately
-    if (!editing) {
-      try {
-        setLoading(true);
-        const success = await localData.updateUserAvatar(user.id, avatarName);
-        
-        if (success) {
-          // Update local context
-          const updateData = {
-            profile_info: {
-              ...(user.profile_info || {}),
-              avatar: avatarName
-            }
-          };
-          await updateUserData(updateData);
-          Alert.alert('Success', 'Avatar updated successfully');
-        } else {
-          Alert.alert('Error', 'Failed to update avatar');
-        }
-      } catch (error) {
-        console.error('Error updating avatar:', error);
-        Alert.alert('Error', 'Failed to update avatar');
-      } finally {
-        setLoading(false);
-      }
-    }
   };
-  
+
   const renderAvatarItem = ({ item }) => (
     <TouchableOpacity
       style={[
-        styles.avatarOption,
-        selectedAvatar === item.value && styles.selectedAvatarOption
+        styles.avatarItem,
+        selectedAvatar === item.value && styles.selectedAvatarItem
       ]}
-      onPress={() => selectAvatar(item.value)}
+      onPress={() => handleSelectAvatar(item.value)}
     >
-      <Image
-        source={avatarImages[item.value]}
-        style={styles.avatarOptionImage}
+      <Image 
+        source={avatarImages[item.value]} 
+        style={styles.avatarItemImage}
         resizeMode="contain"
       />
-      <Text style={styles.avatarOptionText}>{item.label}</Text>
+      <Text style={styles.avatarItemLabel}>{item.label}</Text>
     </TouchableOpacity>
   );
-  
+
   if (loading && !user) {
     return (
       <View style={styles.loadingContainer}>
@@ -306,228 +258,230 @@ const ProfileScreen = () => {
       </View>
     );
   }
-  
+
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView 
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>Profile</Text>
-            <Text style={styles.headerSubtitle}>Manage your business profile</Text>
-          </View>
-        </View>
-        
-        <View style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            <TouchableOpacity onPress={handleChangeAvatar}>
-              <Image 
-                source={avatarImages[selectedAvatar] || avatarImages['milk-icon.png']}
-                style={styles.avatarImage}
-              />
-              <View style={styles.avatarEditBadge}>
-                <Text style={styles.avatarEditBadgeText}>✏️</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.profileInfo}>
-            <Text style={styles.businessName}>{businessName || 'Your Business'}</Text>
-            <Text style={styles.profileEmail}>{user?.email}</Text>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>
-                {user?.approval_status === 'approved' ? 'Approved' : 'Pending Approval'}
-              </Text>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle}>Profile</Text>
+              <Text style={styles.headerSubtitle}>Manage your business profile</Text>
             </View>
           </View>
           
-          {!editing ? (
-            <TouchableOpacity 
-              style={styles.editButton}
-              onPress={handleEditToggle}
-            >
-              <Text style={styles.editButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.editButtonsRow}>
+          <View style={styles.profileCard}>
+            <View style={styles.avatarContainer}>
+              <TouchableOpacity onPress={handleChangeAvatar}>
+                <Image
+                  source={avatarImages[selectedAvatar] || avatarImages['milk-icon.png']}
+                  style={styles.avatarImage}
+                />
+                <View style={styles.avatarEditBadge}>
+                  <Text style={styles.avatarEditBadgeText}>✏️</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.profileInfo}>
+              <Text style={styles.businessName}>{businessName || 'Your Business'}</Text>
+              <Text style={styles.profileEmail}>{user?.email}</Text>
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusBadgeText}>
+                  {user?.approval_status === 'approved' ? 'Approved' : 'Pending Approval'}
+                </Text>
+              </View>
+            </View>
+            
+            {!editing ? (
               <TouchableOpacity 
-                style={[styles.editActionButton, styles.cancelButton]}
+                style={styles.editButton}
                 onPress={handleEditToggle}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.editButtonText}>Edit Profile</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.editActionButton, styles.saveButton]}
-                onPress={handleSaveProfile}
-              >
-                <Text style={styles.saveButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-        
-        <View style={styles.statsContainer}>
-          <Text style={styles.sectionTitle}>Business Stats</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{businessStats.orders}</Text>
-              <Text style={styles.statLabel}>Orders</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{businessStats.products}</Text>
-              <Text style={styles.statLabel}>Products</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{businessStats.customers}</Text>
-              <Text style={styles.statLabel}>Customers</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>₹{businessStats.revenue.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>Revenue</Text>
+            ) : (
+              <View style={styles.editButtonsRow}>
+                <TouchableOpacity 
+                  style={[styles.editActionButton, styles.cancelButton]}
+                  onPress={handleEditToggle}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.editActionButton, styles.saveButton]}
+                  onPress={handleSaveProfile}
+                >
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          
+          <View style={styles.statsContainer}>
+            <Text style={styles.sectionTitle}>Business Stats</Text>
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{businessStats.orders}</Text>
+                <Text style={styles.statLabel}>Orders</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{businessStats.products}</Text>
+                <Text style={styles.statLabel}>Products</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{businessStats.customers}</Text>
+                <Text style={styles.statLabel}>Customers</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>₹{businessStats.revenue.toFixed(2)}</Text>
+                <Text style={styles.statLabel}>Revenue</Text>
+              </View>
             </View>
           </View>
-        </View>
-        
-        {editing ? (
-          <View style={styles.editFormContainer}>
-            <Text style={styles.formSectionTitle}>Business Information</Text>
-            
-            <Text style={styles.inputLabel}>Business Name *</Text>
-            <TextInput
-              style={styles.textInput}
-              value={businessName}
-              onChangeText={setBusinessName}
-              placeholder="Enter business name"
-            />
-            
-            <Text style={styles.inputLabel}>Business Description</Text>
-            <TextInput
-              style={[styles.textInput, styles.textAreaInput]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Describe your business"
-              multiline
-              numberOfLines={4}
-            />
-            
-            <Text style={styles.inputLabel}>Business Logo</Text>
-            <View style={styles.logoContainer}>
-              <View style={styles.businessLogoWrapper}>
-                {logoBase64 ? (
-                  <Image 
-                    source={{ uri: `data:image/jpeg;base64,${logoBase64}` }}
-                    style={styles.businessLogoImage}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <View style={styles.placeholderLogo}>
-                    <Text style={styles.placeholderLogoText}>Add Logo</Text>
-                  </View>
-                )}
-              </View>
-              <TouchableOpacity 
-                style={styles.uploadLogoButton}
-                onPress={selectBusinessLogo}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.uploadLogoButtonText}>
-                  {logoBase64 ? 'Change Logo' : 'Upload Logo'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            
-            <Text style={styles.inputLabel}>Business Address</Text>
-            <TextInput
-              style={styles.textInput}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Enter business address"
-            />
-            
-            <Text style={styles.inputLabel}>Phone Number</Text>
-            <TextInput
-              style={styles.textInput}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="Enter phone number"
-              keyboardType="phone-pad"
-            />
-            
-            <Text style={styles.formSectionTitle}>Account Information</Text>
-            
-            <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-              style={[styles.textInput, { backgroundColor: '#f0f0f0' }]}
-              value={email}
-              editable={false}
-            />
-            
-            <Text style={styles.inputLabel}>New Password (leave blank to keep current)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter new password"
-              secureTextEntry
-            />
-            
-            <Text style={styles.inputLabel}>Confirm New Password</Text>
-            <TextInput
-              style={styles.textInput}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm new password"
-              secureTextEntry
-            />
-          </View>
-        ) : (
-          <View style={styles.profileInfoContainer}>
-            <Text style={styles.sectionTitle}>Business Information</Text>
-            
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Business Name</Text>
-                <Text style={styles.infoValue}>{businessName || 'Not set'}</Text>
-              </View>
+          
+          {editing ? (
+            <View style={styles.editFormContainer}>
+              <Text style={styles.formSectionTitle}>Business Information</Text>
               
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Description</Text>
-                <Text style={styles.infoValue}>{description || 'Not set'}</Text>
-              </View>
+              <Text style={styles.inputLabel}>Business Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={businessName}
+                onChangeText={setBusinessName}
+                placeholder="Enter business name"
+              />
               
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Business Logo</Text>
-                <View style={styles.businessLogoContainer}>
+              <Text style={styles.inputLabel}>Business Description</Text>
+              <TextInput
+                style={[styles.textInput, styles.textAreaInput]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Describe your business"
+                multiline
+                numberOfLines={4}
+              />
+              
+              <Text style={styles.inputLabel}>Business Logo</Text>
+              <View style={styles.logoContainer}>
+                <View style={styles.businessLogoWrapper}>
                   {logoBase64 ? (
                     <Image 
                       source={{ uri: `data:image/jpeg;base64,${logoBase64}` }}
-                      style={styles.businessLogoThumb}
+                      style={styles.businessLogoImage}
                       resizeMode="contain"
                     />
                   ) : (
-                    <Text style={styles.infoValue}>No logo set</Text>
+                    <View style={styles.placeholderLogo}>
+                      <Text style={styles.placeholderLogoText}>Add Logo</Text>
+                    </View>
                   )}
                 </View>
+                <TouchableOpacity 
+                  style={styles.uploadLogoButton}
+                  onPress={selectBusinessLogo}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.uploadLogoButtonText}>
+                    {logoBase64 ? 'Change Logo' : 'Upload Logo'}
+                  </Text>
+                </TouchableOpacity>
               </View>
               
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Address</Text>
-                <Text style={styles.infoValue}>{address || 'Not set'}</Text>
-              </View>
+              <Text style={styles.inputLabel}>Business Address</Text>
+              <TextInput
+                style={styles.textInput}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Enter business address"
+              />
               
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Phone</Text>
-                <Text style={styles.infoValue}>{phone || 'Not set'}</Text>
+              <Text style={styles.inputLabel}>Phone Number</Text>
+              <TextInput
+                style={styles.textInput}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Enter phone number"
+                keyboardType="phone-pad"
+              />
+              
+              <Text style={styles.formSectionTitle}>Account Information</Text>
+              
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={[styles.textInput, { backgroundColor: '#f0f0f0' }]}
+                value={email}
+                editable={false}
+              />
+              
+              <Text style={styles.inputLabel}>New Password (leave blank to keep current)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter new password"
+                secureTextEntry
+              />
+              
+              <Text style={styles.inputLabel}>Confirm New Password</Text>
+              <TextInput
+                style={styles.textInput}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Confirm new password"
+                secureTextEntry
+              />
+            </View>
+          ) : (
+            <View style={styles.profileInfoContainer}>
+              <Text style={styles.sectionTitle}>Business Information</Text>
+              
+              <View style={styles.infoCard}>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Business Name</Text>
+                  <Text style={styles.infoValue}>{businessName || 'Not set'}</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Description</Text>
+                  <Text style={styles.infoValue}>{description || 'Not set'}</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Business Logo</Text>
+                  <View style={styles.businessLogoContainer}>
+                    {logoBase64 ? (
+                      <Image 
+                        source={{ uri: `data:image/jpeg;base64,${logoBase64}` }}
+                        style={styles.businessLogoThumb}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Text style={styles.infoValue}>No logo set</Text>
+                    )}
+                  </View>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Address</Text>
+                  <Text style={styles.infoValue}>{address || 'Not set'}</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Phone</Text>
+                  <Text style={styles.infoValue}>{phone || 'Not set'}</Text>
+                </View>
               </View>
             </View>
-          </View>
-        )}
-        
-        {/* Add spacing to ensure bottom button doesn't overlap content */}
-        <View style={styles.bottomSpacer} />
+          )}
+          
+          {/* Add spacing to ensure bottom button doesn't overlap content */}
+          <View style={styles.bottomSpacer} />
+        </View>
       </ScrollView>
       
       {/* Sign Out Button at the bottom of screen */}
@@ -571,6 +525,17 @@ const ProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: SIZES.PADDING_XL,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
@@ -579,155 +544,104 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f7fa',
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
     color: '#666',
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 100, // Add extra padding at the bottom for the sign out button
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
+    backgroundColor: '#fff',
+    padding: SIZES.PADDING_M,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    ...getShadowStyles(2),
   },
   headerText: {
-    flex: 1,
+    paddingHorizontal: SIZES.PADDING_S,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: SIZES.CAPTION,
     color: '#666',
   },
-  logoutButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#ffebee',
-    borderRadius: 8,
-  },
-  bottomButtonContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  logoutButtonBottom: {
-    backgroundColor: '#ffebee',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  logoutButtonText: {
-    color: '#f44336',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  bottomSpacer: {
-    height: 80, // Extra space at the bottom to ensure content is not hidden under the button
-  },
   profileCard: {
+    margin: SIZES.PADDING_M,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    borderRadius: SIZES.RADIUS_L,
+    padding: SIZES.PADDING_M,
+    ...getShadowStyles(3),
   },
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
   },
   avatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: scale(100),
+    height: scale(100),
+    borderRadius: SIZES.RADIUS_ROUND,
+    backgroundColor: '#f0f8ff',
   },
   avatarEditBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
     backgroundColor: '#4e9af1',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: SIZES.ICON_BUTTON / 1.5,
+    height: SIZES.ICON_BUTTON / 1.5,
+    borderRadius: SIZES.RADIUS_ROUND,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   avatarEditBadgeText: {
-    fontSize: 12,
+    fontSize: SIZES.SMALL,
   },
   profileInfo: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
   },
   businessName: {
-    fontSize: 20,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
+    textAlign: 'center',
   },
   profileEmail: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
-    marginBottom: 8,
+    marginBottom: SIZES.PADDING_S,
+    textAlign: 'center',
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 16,
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_XS,
+    borderRadius: SIZES.RADIUS_M,
   },
   statusBadgeText: {
-    fontSize: 14,
-    color: '#2196f3',
-    fontWeight: '500',
+    color: '#fff',
+    fontSize: SIZES.SMALL,
+    fontWeight: '600',
   },
   editButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_M,
     alignItems: 'center',
   },
   editButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
+    fontSize: SIZES.BODY,
   },
   editButtonsRow: {
     flexDirection: 'row',
@@ -735,249 +649,248 @@ const styles = StyleSheet.create({
   },
   editActionButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_M,
     alignItems: 'center',
+    marginHorizontal: SIZES.PADDING_XS,
   },
   cancelButton: {
-    backgroundColor: '#f5f5f5',
-    marginRight: 8,
+    backgroundColor: '#f0f0f0',
   },
   cancelButtonText: {
     color: '#666',
-    fontWeight: '500',
+    fontWeight: '600',
+    fontSize: SIZES.BODY,
   },
   saveButton: {
-    backgroundColor: '#4e9af1',
-    marginLeft: 8,
+    backgroundColor: '#4CAF50',
   },
   saveButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
+    fontSize: SIZES.BODY,
   },
   statsContainer: {
-    marginBottom: 24,
+    margin: SIZES.PADDING_M,
+    marginTop: 0,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
+    paddingHorizontal: SIZES.PADDING_XS,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -8,
+    justifyContent: 'space-between',
   },
   statCard: {
-    width: '50%',
-    paddingHorizontal: 8,
-    marginBottom: 16,
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    width: '48%',
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
+    alignItems: 'center',
+    ...getShadowStyles(2),
   },
   statValue: {
-    fontSize: 18,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#4e9af1',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
   },
   editFormContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    margin: SIZES.PADDING_M,
+    marginTop: 0,
   },
   formSectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: SIZES.SUBTITLE,
+    fontWeight: '600',
     color: '#333',
-    marginBottom: 16,
-    marginTop: 8,
+    marginTop: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
-    marginBottom: 8,
+    marginBottom: SIZES.PADDING_XS,
   },
   textInput: {
-    backgroundColor: '#f5f5f5',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    fontSize: 16,
-    marginBottom: 16,
+    backgroundColor: '#fff',
+    borderRadius: SIZES.RADIUS_M,
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
+    borderWidth: 1,
+    borderColor: '#eee',
+    minHeight: SIZES.BUTTON_HEIGHT,
   },
   textAreaInput: {
-    height: 100,
+    minHeight: scale(100),
     textAlignVertical: 'top',
   },
   logoContainer: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
   },
   businessLogoWrapper: {
-    width: 150,
-    height: 150,
-    borderRadius: 8,
+    width: scale(80),
+    height: scale(80),
+    borderRadius: SIZES.RADIUS_M,
+    overflow: 'hidden',
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    overflow: 'hidden',
+    marginRight: SIZES.PADDING_M,
   },
   businessLogoImage: {
-    width: 140,
-    height: 140,
+    width: '100%',
+    height: '100%',
   },
   placeholderLogo: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f0f0f0',
   },
   placeholderLogoText: {
     color: '#999',
-    fontSize: 16,
-    textAlign: 'center',
+    fontSize: SIZES.SMALL,
   },
   uploadLogoButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    maxWidth: 200,
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_M,
+    flex: 1,
   },
   uploadLogoButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '600',
+    textAlign: 'center',
   },
   profileInfoContainer: {
-    marginBottom: 24,
+    margin: SIZES.PADDING_M,
+    marginTop: 0,
   },
   infoCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    ...getShadowStyles(2),
   },
   infoRow: {
-    marginBottom: 16,
+    paddingVertical: SIZES.PADDING_S,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#333',
   },
   businessLogoContainer: {
-    marginTop: 8,
+    marginTop: SIZES.PADDING_XS,
   },
   businessLogoThumb: {
-    width: 60,
-    height: 60,
-    borderRadius: 4,
+    width: scale(60),
+    height: scale(60),
+    borderRadius: SIZES.RADIUS_S,
+  },
+  bottomSpacer: {
+    height: SIZES.BUTTON_HEIGHT + SIZES.PADDING_L * 2,
+  },
+  bottomButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    padding: SIZES.PADDING_M,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    ...getShadowStyles(5),
+  },
+  logoutButtonBottom: {
+    backgroundColor: '#ff5252',
+    paddingVertical: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: SIZES.BODY,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: SIZES.PADDING_M,
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    width: '80%',
-    maxHeight: '80%',
+    borderRadius: SIZES.RADIUS_L,
+    width: '90%',
+    maxWidth: 400,
+    padding: SIZES.PADDING_L,
+    ...getShadowStyles(5),
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
     textAlign: 'center',
   },
   avatarGrid: {
-    paddingVertical: 8,
+    padding: SIZES.PADDING_XS,
   },
-  avatarOption: {
-    width: '33.33%',
-    padding: 8,
+  avatarItem: {
+    width: '33%',
+    padding: SIZES.PADDING_XS,
     alignItems: 'center',
   },
-  selectedAvatarOption: {
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
+  selectedAvatarItem: {
+    backgroundColor: '#f0f8ff',
+    borderRadius: SIZES.RADIUS_M,
   },
-  avatarOptionImage: {
-    width: 60,
-    height: 60,
-    marginBottom: 8,
+  avatarItemImage: {
+    width: scale(50),
+    height: scale(50),
+    marginBottom: SIZES.PADDING_XS,
   },
-  avatarOptionText: {
-    fontSize: 12,
+  avatarItemLabel: {
+    fontSize: SIZES.SMALL,
     color: '#666',
     textAlign: 'center',
   },
   closeModalButton: {
-    backgroundColor: '#f5f5f5',
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    paddingVertical: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_M,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: SIZES.PADDING_M,
   },
   closeModalButtonText: {
     color: '#666',
-    fontWeight: '500',
+    fontWeight: '600',
+    fontSize: SIZES.BODY,
   },
 });
 

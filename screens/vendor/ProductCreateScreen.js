@@ -10,8 +10,11 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  SafeAreaView,
+  StatusBar
 } from 'react-native';
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useAuth } from '../../contexts/AuthContext';
@@ -138,29 +141,28 @@ const ProductCreateScreen = () => {
         vendor_id: user.id,
         image: imageName,
         image_base64: localImage.base64, // Store base64 for demo
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
       
-      const product = await localData.addProduct(newProductData);
+      const result = await localData.addProduct(newProductData);
       
-      if (!product) {
-        throw new Error('Failed to create product');
+      if (result.success) {
+        Alert.alert(
+          'Success', 
+          'Product created successfully',
+          [
+            { 
+              text: 'OK', 
+              onPress: () => navigation.goBack() 
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to create product');
       }
-      
-      Alert.alert(
-        'Product Created',
-        'Your product has been added successfully',
-        [
-          { 
-            text: 'OK', 
-            onPress: () => navigation.goBack()
-          }
-        ]
-      );
-      
     } catch (error) {
-      console.error('Error creating product:', error);
-      Alert.alert('Error', 'Failed to create product. Please try again.');
+      console.error('Create product error:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -219,106 +221,120 @@ const ProductCreateScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-    >
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Add New Product</Text>
-          
-          <View style={styles.imageSection}>
-            <TouchableOpacity style={styles.imagePickerButton} onPress={selectImage}>
-              {imageUri ? (
-                <Image source={{ uri: imageUri }} style={styles.productImage} />
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Text style={styles.imagePlaceholderText}>Tap to add product image</Text>
-                  <Text style={styles.imagePlaceholderIcon}>📷</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            {imageUri && (
-              <TouchableOpacity style={styles.changeImageButton} onPress={selectImage}>
-                <Text style={styles.changeImageText}>Change Image</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <View style={styles.formContainer}>
+            <Text style={styles.title}>Add New Product</Text>
+            
+            <View style={styles.imageSection}>
+              <TouchableOpacity style={styles.imagePickerButton} onPress={selectImage}>
+                {imageUri ? (
+                  <Image 
+                    source={{ uri: imageUri }}
+                    style={styles.productImage}
+                  />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Text style={styles.imagePlaceholderIcon}>📷</Text>
+                    <Text style={styles.imagePlaceholderText}>
+                      Tap to select product image
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
-            )}
-          </View>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Product Name *</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter product name"
-              value={productData.name}
-              onChangeText={(text) => handleInputChange('name', text)}
-            />
-          </View>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Description</Text>
-            <TextInput
-              style={[styles.textInput, styles.textAreaInput]}
-              placeholder="Enter product description"
-              value={productData.description}
-              onChangeText={(text) => handleInputChange('description', text)}
-              multiline={true}
-              numberOfLines={4}
-            />
-          </View>
-          
-          <View style={styles.inputRow}>
-            <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-              <Text style={styles.inputLabel}>Price (₹) *</Text>
+              
+              {imageUri && (
+                <TouchableOpacity style={styles.changeImageButton} onPress={selectImage}>
+                  <Text style={styles.changeImageText}>Change Image</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Product Name *</Text>
               <TextInput
                 style={styles.textInput}
-                placeholder="Enter price"
-                value={productData.price}
-                onChangeText={(text) => handleInputChange('price', text)}
-                keyboardType="numeric"
+                placeholder="Enter product name"
+                value={productData.name}
+                onChangeText={(text) => handleInputChange('name', text)}
               />
             </View>
             
-            <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-              <Text style={styles.inputLabel}>Stock Quantity *</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Description</Text>
               <TextInput
-                style={styles.textInput}
-                placeholder="Enter stock"
-                value={productData.stock}
-                onChangeText={(text) => handleInputChange('stock', text)}
-                keyboardType="numeric"
+                style={[styles.textInput, styles.textAreaInput]}
+                placeholder="Enter product description"
+                value={productData.description}
+                onChangeText={(text) => handleInputChange('description', text)}
+                multiline={true}
+                numberOfLines={4}
               />
             </View>
+            
+            <View style={styles.inputRow}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: SIZES.PADDING_S }]}>
+                <Text style={styles.inputLabel}>Price (₹) *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter price"
+                  value={productData.price}
+                  onChangeText={(text) => handleInputChange('price', text)}
+                  keyboardType="numeric"
+                />
+              </View>
+              
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Stock Quantity *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter stock"
+                  value={productData.stock}
+                  onChangeText={(text) => handleInputChange('stock', text)}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Category *</Text>
+              {renderCategoryButtons()}
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Unit</Text>
+              {renderUnitButtons()}
+            </View>
+            
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={handleCreateProduct}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.createButtonText}>Create Product</Text>
+              )}
+            </TouchableOpacity>
           </View>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Category *</Text>
-            {renderCategoryButtons()}
-          </View>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Unit</Text>
-            {renderUnitButtons()}
-          </View>
-          
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreateProduct}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.createButtonText}>Create Product</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1, 
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f7fa',
@@ -327,27 +343,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formContainer: {
-    padding: 20,
+    padding: SIZES.PADDING_M,
   },
   title: {
-    fontSize: 24,
+    fontSize: SIZES.HEADER,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 24,
+    marginBottom: SIZES.PADDING_L,
   },
   imageSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: SIZES.PADDING_L,
   },
   imagePickerButton: {
-    width: 200,
-    height: 200,
+    width: scale(180),
+    height: scale(180),
     backgroundColor: '#f0f0f0',
-    borderRadius: 12,
+    borderRadius: SIZES.RADIUS_M,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: SIZES.PADDING_S,
+    ...getShadowStyles(2),
   },
   productImage: {
     width: '100%',
@@ -357,66 +374,70 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16
+    padding: SIZES.PADDING_M
   },
   imagePlaceholderText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 12
+    marginBottom: SIZES.PADDING_S
   },
   imagePlaceholderIcon: {
-    fontSize: 40,
+    fontSize: scale(40),
     color: '#999'
   },
   changeImageButton: {
-    marginTop: 8,
+    marginTop: SIZES.PADDING_XS,
   },
   changeImageText: {
     color: '#4e9af1',
     fontWeight: '500',
-    fontSize: 16
+    fontSize: SIZES.BODY
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: SIZES.PADDING_M,
   },
   inputRow: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: SIZES.PADDING_M,
   },
   inputLabel: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: SIZES.PADDING_XS,
   },
   textInput: {
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: SIZES.RADIUS_S,
     borderWidth: 1,
     borderColor: '#ddd',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_S,
+    fontSize: SIZES.BODY,
+    minHeight: SIZES.INPUT_HEIGHT,
   },
   textAreaInput: {
-    minHeight: 100,
+    minHeight: scale(100),
     textAlignVertical: 'top',
   },
   categoryContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 8,
+    marginTop: SIZES.PADDING_S,
   },
   categoryButton: {
     backgroundColor: '#f0f0f0',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 12,
-    marginBottom: 12,
+    borderRadius: SIZES.RADIUS_L,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_M,
+    marginRight: SIZES.PADDING_S,
+    marginBottom: SIZES.PADDING_S,
     borderWidth: 1,
     borderColor: '#ddd',
+    minHeight: SIZES.CHIP_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   selectedCategory: {
     backgroundColor: '#e6f2ff',
@@ -424,7 +445,7 @@ const styles = StyleSheet.create({
   },
   categoryButtonText: {
     color: '#666',
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
   },
   selectedCategoryText: {
     color: '#4e9af1',
@@ -433,17 +454,20 @@ const styles = StyleSheet.create({
   unitContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 8,
+    marginTop: SIZES.PADDING_S,
   },
   unitButton: {
     backgroundColor: '#f0f0f0',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 12,
-    marginBottom: 12,
+    borderRadius: SIZES.RADIUS_L,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_M,
+    marginRight: SIZES.PADDING_S,
+    marginBottom: SIZES.PADDING_S,
     borderWidth: 1,
     borderColor: '#ddd',
+    minHeight: SIZES.CHIP_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   selectedUnit: {
     backgroundColor: '#e6f2ff',
@@ -451,7 +475,7 @@ const styles = StyleSheet.create({
   },
   unitButtonText: {
     color: '#666',
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
   },
   selectedUnitText: {
     color: '#4e9af1',
@@ -459,16 +483,19 @@ const styles = StyleSheet.create({
   },
   createButton: {
     backgroundColor: '#4e9af1',
-    borderRadius: 8,
-    paddingVertical: 16,
+    borderRadius: SIZES.RADIUS_M,
+    paddingVertical: SIZES.PADDING_M,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: SIZES.PADDING_L,
+    minHeight: SIZES.BUTTON_HEIGHT,
+    justifyContent: 'center',
+    ...getShadowStyles(3),
   },
   createButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
   },
 });
 
-export default ProductCreateScreen; 
+export default ProductCreateScreen;

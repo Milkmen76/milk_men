@@ -658,3 +658,44 @@ export const getCurrentUser = async () => {
     return null;
   }
 };
+
+// Verify user password
+export const verifyPassword = async (userId, password) => {
+  try {
+    const users = await getUsers();
+    if (!users) return { success: false, message: 'Error reading user data' };
+    
+    const user = users.find(user => user.id === userId);
+    if (!user) return { success: false, message: 'User not found' };
+    
+    if (user.password === password) {
+      return { success: true };
+    } else {
+      return { success: false, message: 'Incorrect password' };
+    }
+  } catch (error) {
+    console.error('Verify password error:', error);
+    return { success: false, message: 'Verification failed' };
+  }
+};
+
+// Update user password
+export const updatePassword = async (userId, newPassword) => {
+  try {
+    const users = await getUsers();
+    if (!users) return { success: false, message: 'Error reading user data' };
+    
+    const userIndex = users.findIndex(user => user.id === userId);
+    if (userIndex === -1) return { success: false, message: 'User not found' };
+    
+    // Update password
+    users[userIndex].password = newPassword;
+    
+    // Save updated users data
+    const success = await writeJsonFile('users.json', users);
+    return success ? { success: true } : { success: false, message: 'Failed to update password' };
+  } catch (error) {
+    console.error('Update password error:', error);
+    return { success: false, message: 'Password update failed' };
+  }
+};

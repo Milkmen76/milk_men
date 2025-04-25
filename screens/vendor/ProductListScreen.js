@@ -7,8 +7,12 @@ import {
   TouchableOpacity,
   Image,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  SafeAreaView,
+  StatusBar,
+  Platform
 } from 'react-native';
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
@@ -129,16 +133,18 @@ const ProductListScreen = () => {
   };
   
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Products</Text>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={handleAddNewProduct}
-        >
-          <Text style={styles.addButtonText}>+ Add Product</Text>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Products</Text>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={handleAddNewProduct}
+          >
+            <Text style={styles.addButtonText}>+ Add Product</Text>
+          </TouchableOpacity>
+        </View>
       
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -175,11 +181,17 @@ const ProductListScreen = () => {
           )}
         </>
       )}
-    </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f7fa',
@@ -188,27 +200,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_M,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    ...getShadowStyles(2),
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333',
   },
   addButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    paddingVertical: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_L,
+    minHeight: verticalScale(36),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   addButtonText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
   },
   loadingContainer: {
     flex: 1,
@@ -216,61 +232,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   productList: {
-    padding: 16,
+    padding: SIZES.PADDING_M,
   },
   productCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
+    ...getShadowStyles(2),
   },
   productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
+    width: scale(80),
+    height: scale(80),
+    borderRadius: SIZES.RADIUS_M,
     backgroundColor: '#f0f8ff',
-    marginRight: 16,
+    marginRight: SIZES.PADDING_M,
   },
   productInfo: {
     flex: 1,
     justifyContent: 'center',
   },
   productName: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '700',
     color: '#4e9af1',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   productCategory: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#777',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   productStock: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#777',
   },
   actionButtons: {
     justifyContent: 'center',
   },
   actionButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    marginBottom: 8,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    marginBottom: SIZES.PADDING_S,
     alignItems: 'center',
+    minWidth: scale(60),
+    justifyContent: 'center',
   },
   editButton: {
     backgroundColor: '#f0f8ff',
@@ -279,43 +293,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff0f0',
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     fontWeight: '500',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SIZES.PADDING_L,
   },
   emptyImage: {
-    width: 100,
-    height: 100,
+    width: scale(100),
+    height: scale(100),
     opacity: 0.5,
-    marginBottom: 20,
+    marginBottom: SIZES.PADDING_L,
   },
   emptyText: {
-    fontSize: 20,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: SIZES.PADDING_S,
   },
   emptySubtext: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#777',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: SIZES.PADDING_L,
   },
   emptyAddButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: SIZES.PADDING_M,
+    paddingHorizontal: SIZES.PADDING_L,
+    borderRadius: SIZES.RADIUS_M,
+    minHeight: SIZES.BUTTON_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyAddButtonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: SIZES.BODY,
   },
 });
 
