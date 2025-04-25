@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import { UserBottomTabs, VendorBottomTabs, AdminBottomTabs } from './BottomTabNavigator';
 
 const Stack = createNativeStackNavigator();
@@ -47,6 +48,11 @@ const RoleBasedNavigator = () => {
           name="SignUp" 
           component={SignUpScreen} 
           options={{ title: 'Milk Delivery - Sign Up' }}
+        />
+        <Stack.Screen 
+          name="ResetPassword" 
+          component={ResetPasswordScreen} 
+          options={{ title: 'Reset Password' }}
         />
       </Stack.Navigator>
     );

@@ -569,7 +569,7 @@ export const loginUser = async (email, password) => {
 
 export const signupUser = async (userData) => {
   try {
-    const { email, password, name, role } = userData;
+    const { email, password, name, role, phone_number } = userData;
     
     // Check if email already exists
     const existingUser = await getUserByEmail(email);
@@ -582,13 +582,22 @@ export const signupUser = async (userData) => {
       email,
       password,
       name,
-      role
+      role,
+      phone_number
     };
+    
+    // Initialize profile_info for all users
+    newUserData.profile_info = userData.profile_info || {};
     
     // Add approval_status for vendors
     if (role === 'vendor') {
       newUserData.approval_status = 'pending';
-      newUserData.profile_info = userData.profile_info || { business_name: '', address: '' };
+      // Ensure vendor profile info has the required fields
+      if (!newUserData.profile_info) {
+        newUserData.profile_info = {};
+      }
+      newUserData.profile_info.business_name = userData.profile_info?.business_name || '';
+      newUserData.profile_info.address = userData.profile_info?.address || '';
     }
     
     const newUser = await addUser(newUserData);

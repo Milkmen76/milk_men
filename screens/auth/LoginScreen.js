@@ -158,12 +158,24 @@ const LoginScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
             
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('SignUp')} 
-              style={styles.linkContainer}
-            >
-              <Text style={styles.link}>Don't have an account? Sign Up</Text>
-            </TouchableOpacity>
+            <View style={styles.linksContainer}>
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('SignUp')} 
+                style={styles.linkItem}
+              >
+                <Text style={styles.link}>Don't have an account? Sign Up</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={() => {
+                  closeModal();
+                  navigation.navigate('ResetPassword');
+                }} 
+                style={styles.linkItem}
+              >
+                <Text style={styles.link}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -290,9 +302,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: 16
   },
-  linkContainer: { 
-    marginTop: 20, 
-    alignItems: 'center' 
+  linksContainer: { 
+    marginTop: 20,
+    alignItems: 'center',
+    width: '100%'
+  },
+  linkItem: {
+    marginVertical: 5,
+    alignItems: 'center'
   },
   link: { 
     color: '#4e9af1',

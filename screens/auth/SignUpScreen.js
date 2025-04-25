@@ -15,6 +15,8 @@ const SignUpScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [address, setAddress] = useState('');
   const [role, setRole] = useState('user');
   const [businessName, setBusinessName] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
@@ -33,8 +35,18 @@ const SignUpScreen = ({ navigation }) => {
       return;
     }
     
-    if (role === 'vendor' && (!businessName || !businessAddress)) {
-      setError('Business name and address are required for vendors');
+    if (role === 'user' && !phoneNumber) {
+      setError('Phone number is required');
+      return;
+    }
+    
+    if (role === 'user' && !address) {
+      setError('Address is required');
+      return;
+    }
+    
+    if (role === 'vendor' && (!businessName || !businessAddress || !phoneNumber)) {
+      setError('Business name, business address, and phone number are required for vendors');
       return;
     }
     
@@ -49,8 +61,16 @@ const SignUpScreen = ({ navigation }) => {
         email,
         password,
         name,
-        role
+        role,
+        phone_number: phoneNumber
       };
+      
+      // Add user-specific fields if applicable
+      if (role === 'user') {
+        userData.profile_info = {
+          address: address
+        };
+      }
       
       // Add vendor-specific fields if applicable
       if (role === 'vendor') {
@@ -117,6 +137,14 @@ const SignUpScreen = ({ navigation }) => {
           />
           
           <TextInput
+            placeholder="Phone Number"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            style={styles.input}
+            keyboardType="phone-pad"
+          />
+          
+          <TextInput
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
@@ -146,6 +174,18 @@ const SignUpScreen = ({ navigation }) => {
               </Picker>
             </View>
           </View>
+          
+          {role === 'user' && (
+            <View style={styles.userFields}>
+              <Text style={styles.sectionTitle}>User Details</Text>
+              <TextInput
+                placeholder="Address"
+                value={address}
+                onChangeText={setAddress}
+                style={styles.input}
+              />
+            </View>
+          )}
           
           {role === 'vendor' && (
             <View style={styles.vendorFields}>
@@ -253,6 +293,13 @@ const styles = StyleSheet.create({
   picker: { 
     height: 50, 
     width: '100%' 
+  },
+  userFields: {
+    marginTop: 10,
+    marginBottom: 10,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee'
   },
   vendorFields: {
     marginTop: 10,
