@@ -789,11 +789,21 @@ const OrderManagementScreen = () => {
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search orders..."
+            placeholder="Search orders by customer name or ID..."
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#999"
+            returnKeyType="search"
+            clearButtonMode="while-editing"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity 
+              style={styles.clearSearch} 
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={styles.clearSearchText}>✕</Text>
+            </TouchableOpacity>
+          )}
         </View>
         
         <View style={styles.tabs}>
@@ -942,20 +952,13 @@ const styles = StyleSheet.create({
     color: '#4e9af1'
   },
   searchContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginVertical: 10,
+    paddingHorizontal: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
   },
   searchInput: {
     height: 40,
@@ -1053,20 +1056,6 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   detailLabel: {
-    width: 100,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666'
-  },
-  detailValue: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333'
-  },
-  deliveryStatus: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center'
   },
   deliveryTitle: {
     fontSize: 14,

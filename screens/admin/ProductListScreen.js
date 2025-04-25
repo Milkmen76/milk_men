@@ -31,6 +31,7 @@ const ProductListScreen = () => {
   const [vendors, setVendors] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   useEffect(() => {
     loadData();
@@ -139,13 +140,28 @@ const ProductListScreen = () => {
       </TouchableOpacity>
       
       <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('ProfileScreen')}
+        style={[styles.navButton, { backgroundColor: '#4e9af1' }]}
+        onPress={() => navigation.navigate('ProductListScreen')}
       >
-        <Text style={styles.navButtonText}>Profile</Text>
+        <Text style={[styles.navButtonText, { color: '#fff' }]}>Products</Text>
       </TouchableOpacity>
     </View>
   );
+
+  const getFilteredProducts = () => {
+    if (!searchQuery.trim()) return products;
+    
+    const query = searchQuery.toLowerCase();
+    return products.filter(product => {
+      const productName = product.name?.toLowerCase() || '';
+      const vendorName = vendors[product.vendor_id]?.toLowerCase() || '';
+      const category = product.category?.toLowerCase() || '';
+      
+      return productName.includes(query) || 
+             vendorName.includes(query) || 
+             category.includes(query);
+    });
+  };
 
   if (loading) {
     return (
@@ -184,11 +200,30 @@ const ProductListScreen = () => {
         </View>
         
         {renderHeaderButtons()}
+        
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity 
+              style={styles.clearSearch} 
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={styles.clearSearchText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       
-      {products.length > 0 ? (
+      {getFilteredProducts().length > 0 ? (
         <FlatList
-          data={products}
+          data={getFilteredProducts()}
           renderItem={renderProductItem}
           keyExtractor={(item) => item.product_id}
           contentContainerStyle={styles.listContainer}
@@ -198,7 +233,17 @@ const ProductListScreen = () => {
       ) : (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No products found</Text>
-          <Text style={styles.emptySubtext}>There are no products in the system</Text>
+          <Text style={styles.emptySubtext}>
+            {searchQuery ? 'No products match your search criteria' : 'There are no products in the system'}
+          </Text>
+          {searchQuery ? (
+            <TouchableOpacity 
+              style={styles.clearSearchButton}
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={styles.clearSearchText}>Clear Search</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       )}
       </View>
@@ -349,7 +394,51 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: SIZES.BODY,
     color: '#666',
-    textAlign: 'center'
+    textAlign: 'center',
+    marginBottom: SIZES.PADDING_M
+  },
+  searchContainer: {
+    padding: SIZES.PADDING_M,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    position: 'relative'
+  },
+  searchInput: {
+    height: SIZES.INPUT_HEIGHT,
+    backgroundColor: '#f5f5f5',
+    borderRadius: SIZES.RADIUS_S,
+    paddingHorizontal: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
+    color: '#333',
+    paddingRight: 30
+  },
+  clearSearch: {
+    position: 'absolute',
+    right: 25,
+    top: '50%',
+    marginTop: -10,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearSearchText: {
+    fontSize: 12,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  clearSearchButton: {
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_M,
+    backgroundColor: '#4e9af1',
+    borderRadius: SIZES.RADIUS_S,
+    minHeight: SIZES.BUTTON_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...getShadowStyles(2)
   }
 });
 

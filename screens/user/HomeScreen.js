@@ -264,37 +264,65 @@ const HomeScreen = () => {
     navigation.navigate('ProfileTab');
   };
 
-  const handleCategoryPress = async (category) => {
+  const handleCategoryPress = (category) => {
     setCategoryLoading(true);
+    setCategoryModalVisible(true);
     setSelectedCategory(category);
     
-    try {
-      // Filter products by category
-      const filteredProducts = products.filter(product => 
-        (product.category || '').toLowerCase() === category.name.toLowerCase() ||
-        (product.name || '').toLowerCase().includes(category.name.toLowerCase())
-      );
-      
-      setCategoryProducts(filteredProducts);
-      
-      // Fetch vendor details for each product
-      const vendorIds = [...new Set(filteredProducts.map(p => p.vendor_id))];
-      const vendorData = {};
-      
-      for (const vid of vendorIds) {
-        const vendor = await localData.getUserById(vid);
-        if (vendor) {
-          vendorData[vid] = vendor;
-        }
-      }
-      
-      setCategoryVendors(vendorData);
-      setCategoryModalVisible(true);
-    } catch (error) {
-      console.error('Error loading category products:', error);
-    } finally {
+    // Filter products by the selected category
+    const filtered = products.filter(product => {
+      return product.category === category;
+    });
+    
+    setCategoryProducts(filtered);
+    
+    // Create a map of vendor names for quick lookup
+    const vendorMap = {};
+    vendors.forEach(vendor => {
+      vendorMap[vendor.id] = vendor.businessName || vendor.name;
+    });
+    
+    setCategoryVendors(vendorMap);
+    
+    // Reset selected products
+    setSelectedProducts({});
+    
+    // Simulate loading
+    setTimeout(() => {
       setCategoryLoading(false);
-    }
+    }, 500);
+  };
+  
+  // Filter vendors based on search query
+  const getFilteredVendors = () => {
+    if (!searchQuery.trim()) return vendors;
+    
+    const query = searchQuery.toLowerCase();
+    return vendors.filter(vendor => {
+      const businessName = vendor.businessName?.toLowerCase() || '';
+      const name = vendor.name?.toLowerCase() || '';
+      const description = vendor.description?.toLowerCase() || '';
+      
+      return businessName.includes(query) || 
+             name.includes(query) || 
+             description.includes(query);
+    });
+  };
+  
+  // Filter products based on search query
+  const getFilteredProducts = () => {
+    if (!searchQuery.trim()) return products;
+    
+    const query = searchQuery.toLowerCase();
+    return products.filter(product => {
+      const name = product.name?.toLowerCase() || '';
+      const description = product.description?.toLowerCase() || '';
+      const category = product.category?.toLowerCase() || '';
+      
+      return name.includes(query) || 
+             description.includes(query) || 
+             category.includes(query);
+    });
   };
 
   const handleSeeAllPress = () => {
@@ -425,7 +453,7 @@ const HomeScreen = () => {
           </View>
           <View style={styles.locationInfo}>
             <Text style={styles.locationText}>
-              {item.location?.city || 'Bhawarkua'}
+              {item.location?.city || 'Bhawarkua' }
             </Text>
             <Text style={styles.distanceText}>
               {item.distance || '1.5'} Km
@@ -526,6 +554,36 @@ const HomeScreen = () => {
     );
   };
 
+  const renderProductItem = ({ item }) => {
+    return (
+      <View style={styles.productCard}>
+        <View style={styles.productImageContainer}>
+          <Image 
+            source={getProductImage(item)}
+            style={styles.productImage}
+            resizeMode="contain"
+          />
+        </View>
+        <View style={styles.productInfo}>
+          <Text style={styles.productName}>{item.name}</Text>
+          <TouchableOpacity
+            onPress={() => handleViewVendor(item.vendor_id)}
+          >
+            <Text style={styles.vendorNameText}>By: {getVendorName(item.vendor_id)}</Text>
+          </TouchableOpacity>
+          <Text style={styles.productPrice}>₹{item.price.toFixed(2)}</Text>
+          
+          <TouchableOpacity 
+            style={styles.viewButton}
+            onPress={() => navigateToVendorProducts(item.vendor_id, getVendorName(item.vendor_id))}
+          >
+            <Text style={styles.viewButtonText}>View</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -571,15 +629,27 @@ const HomeScreen = () => {
             placeholder="Search Vendor, Product"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
           />
           <Text style={styles.searchIcon}>🔍</Text>
+          {searchQuery.length > 0 && (
+            <TouchableOpacity 
+              style={styles.clearSearch} 
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={styles.clearSearchText}>✕</Text>
+            </TouchableOpacity>
+          )}
         </View>
         
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Suggested Vendors</Text>
-          {vendors.length > 0 ? (
+          <Text style={styles.sectionTitle}>
+            {searchQuery ? 'Search Results' : 'Suggested Vendors'}
+          </Text>
+          {getFilteredVendors().length > 0 ? (
             <FlatList
-              data={vendors}
+              data={getFilteredVendors()}
               renderItem={renderSuggestedVendorItem}
               keyExtractor={(item) => item.id}
               horizontal
@@ -593,33 +663,39 @@ const HomeScreen = () => {
           )}
         </View>
         
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Explore category</Text>
-          <FlatList
-            data={getUniqueCategories()}
-            renderItem={renderCategoryItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryList}
-          />
-        </View>
+        {!searchQuery && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Categories</Text>
+            <FlatList
+              data={getUniqueCategories()}
+              renderItem={renderCategoryItem}
+              keyExtractor={(item) => item}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryList}
+            />
+          </View>
+        )}
         
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Popular Vendors</Text>
-            <TouchableOpacity onPress={handleSeeAllPress}>
-              <Text style={styles.seeAllText}>See all</Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>
+              {searchQuery ? 'Product Results' : 'Popular Products'}
+            </Text>
+            {!searchQuery && (
+              <TouchableOpacity onPress={handleSeeAllPress}>
+                <Text style={styles.seeAllText}>See all</Text>
+              </TouchableOpacity>
+            )}
           </View>
           {vendors.length > 0 ? (
             <FlatList
-              data={vendors}
-              renderItem={renderPopularVendorItem}
-              keyExtractor={(item) => item.id}
+              data={searchQuery ? getFilteredProducts() : products.slice(0, 10)}
+              renderItem={renderProductItem}
+              keyExtractor={(item) => item.product_id}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.popularVendorList}
+              contentContainerStyle={styles.productList}
             />
           ) : (
             <View style={styles.emptyStateContainer}>
@@ -745,26 +821,43 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
     position: 'relative',
   },
   searchInput: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 25,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    paddingRight: 50,
+    flex: 1,
+    height: 45,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#eee',
+    paddingRight: 30,
   },
   searchIcon: {
-    position: 'absolute',
-    right: 35,
-    top: 28,
     fontSize: 20,
-    color: '#999',
+    color: '#888',
+  },
+  clearSearch: {
+    position: 'absolute',
+    right: 40,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearSearchText: {
+    fontSize: 10,
+    color: '#333',
+    fontWeight: 'bold',
   },
   section: {
     marginBottom: 20,
@@ -1095,6 +1188,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#333',
     marginLeft: 10,
+  },
+  viewButton: {
+    backgroundColor: '#4e9af1',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  viewButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16
   },
 });
 
