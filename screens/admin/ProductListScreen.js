@@ -10,7 +10,8 @@ import {
   Alert,
   SafeAreaView,
   StatusBar,
-  Platform
+  Platform,
+  TextInput
 } from 'react-native';
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
@@ -117,34 +118,8 @@ const ProductListScreen = () => {
   );
 
   const renderHeaderButtons = () => (
-    <View style={styles.headerButtons}>
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('VendorApprovalScreen')}
-      >
-        <Text style={styles.navButtonText}>Approvals</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('UserListScreen')}
-      >
-        <Text style={styles.navButtonText}>Users</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={styles.navButton}
-        onPress={() => navigation.navigate('TransactionListScreen')}
-      >
-        <Text style={styles.navButtonText}>Transactions</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={[styles.navButton, { backgroundColor: '#4e9af1' }]}
-        onPress={() => navigation.navigate('ProductListScreen')}
-      >
-        <Text style={[styles.navButtonText, { color: '#fff' }]}>Products</Text>
-      </TouchableOpacity>
+    <View style={styles.filtersScrollView}>
+     
     </View>
   );
 
@@ -166,7 +141,7 @@ const ProductListScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4e9af1" />
           <Text style={styles.loadingText}>Loading products...</Text>
@@ -177,49 +152,39 @@ const ProductListScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
-      <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>All Products</Text>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <View style={styles.headerContainer}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.welcomeText}>Admin Dashboard</Text>
+            <Text style={styles.businessName}>All Products</Text>
+          </View>
           <TouchableOpacity 
-            style={styles.signOutButton}
-            onPress={() => {
-              Alert.alert(
-                'Sign Out',
-                'Are you sure you want to sign out?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Sign Out', onPress: logout, style: 'destructive' }
-                ]
-              );
-            }}
+            style={styles.logoContainer}
+            onPress={() => navigation.navigate('ProfileTab')}
+            activeOpacity={0.7}
           >
-            <Text style={styles.signOutText}>Sign Out</Text>
+            <Image 
+              source={require('../../assets/milk-icon.png')} 
+              style={styles.logo} 
+              resizeMode="contain"
+            />
           </TouchableOpacity>
         </View>
-        
-        {renderHeaderButtons()}
-        
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search products..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity 
-              style={styles.clearSearch} 
-              onPress={() => setSearchQuery('')}
-            >
-              <Text style={styles.clearSearchText}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
+      
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search products..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+      </View>
+      
+      {renderHeaderButtons()}
       
       {getFilteredProducts().length > 0 ? (
         <FlatList
@@ -238,15 +203,14 @@ const ProductListScreen = () => {
           </Text>
           {searchQuery ? (
             <TouchableOpacity 
-              style={styles.clearSearchButton}
+              style={styles.actionButton}
               onPress={() => setSearchQuery('')}
             >
-              <Text style={styles.clearSearchText}>Clear Search</Text>
+              <Text style={styles.actionButtonText}>Clear Search</Text>
             </TouchableOpacity>
           ) : null}
         </View>
       )}
-      </View>
     </SafeAreaView>
   );
 };
@@ -255,190 +219,234 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  headerContainer: {
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f9f9f9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
   },
   loadingText: {
-    marginTop: SIZES.PADDING_S,
+    marginTop: SIZES.PADDING_M,
     fontSize: SIZES.BODY,
     color: '#666'
   },
   header: {
-    backgroundColor: '#fff',
-    paddingTop: SIZES.PADDING_M,
-    paddingBottom: SIZES.PADDING_S,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    ...getShadowStyles(2)
-  },
-  titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SIZES.PADDING_M,
-    marginBottom: SIZES.PADDING_M
+    padding: SIZES.PADDING_M,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
   },
-  title: {
+  welcomeText: {
+    fontSize: SIZES.BODY,
+    color: '#666'
+  },
+  businessName: {
     fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
-  signOutButton: {
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    backgroundColor: '#ff5252',
-    minHeight: verticalScale(30),
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  signOutText: {
-    color: '#fff',
-    fontWeight: '500',
-    fontSize: SIZES.CAPTION
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: SIZES.PADDING_S,
-    flexWrap: 'wrap',
-    justifyContent: 'space-between'
-  },
-  navButton: {
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_S,
-    marginHorizontal: SIZES.PADDING_XS,
-    marginBottom: SIZES.PADDING_XS,
-    borderRadius: SIZES.RADIUS_S,
-    backgroundColor: '#f0f0f0',
-    minWidth: scale(70),
-    minHeight: verticalScale(32),
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  navButtonText: {
-    color: '#333',
-    fontWeight: '500',
-    fontSize: SIZES.CAPTION
-  },
-  listContainer: {
-    padding: SIZES.PADDING_M
-  },
-  productCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_M,
-    marginBottom: SIZES.PADDING_M,
-    alignItems: 'center',
-    ...getShadowStyles(2)
-  },
-  productImage: {
-    width: scale(60),
-    height: scale(60),
-    marginRight: SIZES.PADDING_M
-  },
-  productInfo: {
-    flex: 1
-  },
-  productName: {
-    fontSize: SIZES.BODY,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: SIZES.PADDING_XS
-  },
-  productPrice: {
-    fontSize: SIZES.SUBTITLE,
-    color: '#4e9af1',
-    fontWeight: 'bold',
-    marginBottom: SIZES.PADDING_XS
-  },
-  vendorName: {
-    fontSize: SIZES.CAPTION,
-    color: '#666'
-  },
-  deleteButton: {
-    backgroundColor: '#d9534f',
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    minHeight: verticalScale(32),
+  logoContainer: {
+    width: scale(44),
+    height: scale(44),
     justifyContent: 'center',
     alignItems: 'center',
-    ...getShadowStyles(1)
+    borderRadius: SIZES.RADIUS_ROUND,
+    backgroundColor: '#f0f8ff'
   },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: SIZES.CAPTION,
-    fontWeight: '500'
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SIZES.PADDING_L
-  },
-  emptyText: {
-    fontSize: SIZES.SUBTITLE,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: SIZES.PADDING_S
-  },
-  emptySubtext: {
-    fontSize: SIZES.BODY,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: SIZES.PADDING_M
+  logo: {
+    width: scale(30),
+    height: scale(30)
   },
   searchContainer: {
     padding: SIZES.PADDING_M,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    position: 'relative'
+    borderBottomColor: '#eee'
   },
   searchInput: {
     height: SIZES.INPUT_HEIGHT,
     backgroundColor: '#f5f5f5',
-    borderRadius: SIZES.RADIUS_S,
+    borderRadius: SIZES.RADIUS_M,
     paddingHorizontal: SIZES.PADDING_M,
     fontSize: SIZES.BODY,
-    color: '#333',
-    paddingRight: 30
+    color: '#333'
   },
-  clearSearch: {
-    position: 'absolute',
-    right: 25,
-    top: '50%',
-    marginTop: -10,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#ddd',
+  filtersScrollView: {
+    backgroundColor: '#fff',
+    marginBottom: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10
   },
-  clearSearchText: {
-    fontSize: 12,
-    color: '#333',
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    margin: 4,
+    backgroundColor: '#f0f0f0'
+  },
+  activeFilterButton: {
+    backgroundColor: '#4e9af1'
+  },
+  filterButtonText: {
+    fontSize: 14,
+    color: '#666'
+  },
+  activeFilterText: {
+    color: '#fff',
+    fontWeight: '500'
+  },
+  listContainer: {
+    padding: SIZES.PADDING_M
+  },
+  productCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  productImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 16,
+    backgroundColor: '#f0f8ff'
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: 16,
     fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
   },
-  clearSearchButton: {
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_M,
-    backgroundColor: '#4e9af1',
-    borderRadius: SIZES.RADIUS_S,
-    minHeight: SIZES.BUTTON_HEIGHT,
+  productPrice: {
+    fontSize: 14,
+    color: '#4e9af1',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  vendorName: {
+    fontSize: 14,
+    color: '#666',
+  },
+  deleteButton: {
+    backgroundColor: '#ff5252',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    ...getShadowStyles(2)
+    padding: 24,
+    backgroundColor: '#fff',
+    margin: 16,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16
+  },
+  actionButton: {
+    backgroundColor: '#4e9af1',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    minWidth: scale(120),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   }
 });
 

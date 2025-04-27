@@ -10,7 +10,8 @@ import {
   TextInput,
   SafeAreaView,
   Platform,
-  StatusBar
+  StatusBar,
+  Image
 } from 'react-native';
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
@@ -157,55 +158,61 @@ const VendorApprovalScreen = () => {
   );
 
   const renderFilterTabs = () => (
-    <View style={styles.filterTabs}>
-      <TouchableOpacity
-        style={[
-          styles.filterTab,
-          activeTab === 'pending' && styles.activeFilterTab
-        ]}
-        onPress={() => setActiveTab('pending')}
-      >
-        <Text style={[
-          styles.filterTabText,
-          activeTab === 'pending' && styles.activeFilterTabText
-        ]}>Pending</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[
-          styles.filterTab,
-          activeTab === 'approved' && styles.activeFilterTab
-        ]}
-        onPress={() => setActiveTab('approved')}
-      >
-        <Text style={[
-          styles.filterTabText,
-          activeTab === 'approved' && styles.activeFilterTabText
-        ]}>Approved</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[
-          styles.filterTab,
-          activeTab === 'rejected' && styles.activeFilterTab
-        ]}
-        onPress={() => setActiveTab('rejected')}
-      >
-        <Text style={[
-          styles.filterTabText,
-          activeTab === 'rejected' && styles.activeFilterTabText
-        ]}>Rejected</Text>
-      </TouchableOpacity>
+    <View style={styles.filtersScrollView}>
+      <View style={styles.filtersContainer}>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            activeTab === 'pending' && styles.activeFilterButton
+          ]}
+          onPress={() => setActiveTab('pending')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            activeTab === 'pending' && styles.activeFilterText
+          ]}>Pending</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            activeTab === 'approved' && styles.activeFilterButton
+          ]}
+          onPress={() => setActiveTab('approved')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            activeTab === 'approved' && styles.activeFilterText
+          ]}>Approved</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            activeTab === 'rejected' && styles.activeFilterButton
+          ]}
+          onPress={() => setActiveTab('rejected')}
+        >
+          <Text style={[
+            styles.filterButtonText,
+            activeTab === 'rejected' && styles.activeFilterText
+          ]}>Rejected</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderNavButtons = () => (
+    <View style={styles.filtersScrollView}>
+     
     </View>
   );
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar backgroundColor="#fff" barStyle="dark-content" />
-        <View style={styles.container}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4e9af1" />
-            <Text style={styles.loadingText}>Loading vendors...</Text>
-          </View>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading vendors...</Text>
         </View>
       </SafeAreaView>
     );
@@ -213,154 +220,129 @@ const VendorApprovalScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
-      <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <View style={styles.headerContainer}>
         <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>Vendor Approvals</Text>
-            <TouchableOpacity 
-              style={styles.signOutButton}
-              onPress={() => {
-                Alert.alert(
-                  'Sign Out',
-                  'Are you sure you want to sign out?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Sign Out', onPress: logout, style: 'destructive' }
-                  ]
-                );
-              }}
-            >
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </TouchableOpacity>
+          <View>
+            <Text style={styles.welcomeText}>Admin Dashboard</Text>
+            <Text style={styles.businessName}>Vendor Approvals</Text>
           </View>
+          <TouchableOpacity 
+            style={styles.logoContainer}
+            onPress={() => navigation.navigate('ProfileTab')}
+            activeOpacity={0.7}
+          >
+            <Image 
+              source={require('../../assets/milk-icon.png')} 
+              style={styles.logo} 
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
         </View>
-        
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search vendors by name or email..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
-          />
-        </View>
-        
-        {renderFilterTabs()}
-        
-        {filteredVendors.length > 0 ? (
-          <FlatList
-            data={filteredVendors}
-            renderItem={renderVendorItem}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.listContainer}
-            refreshing={refreshing}
-            onRefresh={loadVendors}
-          />
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No vendors found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery 
-                ? `No results matching "${searchQuery}"`
-                : activeTab === 'pending'
-                  ? 'No pending vendor approvals'
-                  : activeTab === 'approved'
-                    ? 'No approved vendors'
-                    : 'No rejected vendors'}
-            </Text>
-            {searchQuery && (
-              <TouchableOpacity 
-                style={styles.clearSearchButton}
-                onPress={() => setSearchQuery('')}
-              >
-                <Text style={styles.clearSearchText}>Clear Search</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
       </View>
+      
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search vendors by name or email..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          clearButtonMode="while-editing"
+        />
+      </View>
+      
+      {renderNavButtons()}
+      {renderFilterTabs()}
+      
+      {filteredVendors.length > 0 ? (
+        <FlatList
+          data={filteredVendors}
+          renderItem={renderVendorItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          refreshing={refreshing}
+          onRefresh={loadVendors}
+        />
+      ) : (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No vendors found</Text>
+          <Text style={styles.emptySubtext}>
+            {searchQuery
+              ? 'No vendors match your search criteria'
+              : `No ${activeTab} vendors available`}
+          </Text>
+          {searchQuery && (
+            <TouchableOpacity 
+              style={styles.btnAction}
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={styles.btnActionText}>Clear Search</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
-    flex: 1, 
-    backgroundColor: '#f5f7fa',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  container: {
     flex: 1,
-    backgroundColor: '#f5f7fa'
+    backgroundColor: '#f9f9f9',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  loadingText: {
-    marginTop: SIZES.PADDING_S,
-    fontSize: SIZES.BODY,
-    color: '#666'
+  headerContainer: {
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   header: {
-    backgroundColor: '#fff',
-    paddingTop: SIZES.PADDING_M,
-    paddingBottom: SIZES.PADDING_M,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    ...getShadowStyles(2)
-  },
-  titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SIZES.PADDING_M,
-    marginBottom: SIZES.PADDING_M
+    padding: SIZES.PADDING_M,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
   },
-  title: {
+  welcomeText: {
+    fontSize: SIZES.BODY,
+    color: '#666'
+  },
+  businessName: {
     fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
-  signOutButton: {
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    backgroundColor: '#ff5252',
-    minHeight: verticalScale(30),
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  signOutText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: SIZES.CAPTION
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: SIZES.PADDING_S,
-    flexWrap: 'wrap',
-    justifyContent: 'center'
-  },
-  navButton: {
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_S,
-    marginHorizontal: SIZES.PADDING_XS,
-    marginBottom: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    backgroundColor: '#f0f0f0',
-    minHeight: verticalScale(32),
-    minWidth: scale(80),
+  logoContainer: {
+    width: scale(44),
+    height: scale(44),
     justifyContent: 'center',
     alignItems: 'center',
-    ...getShadowStyles(1)
+    borderRadius: SIZES.RADIUS_ROUND,
+    backgroundColor: '#f0f8ff'
   },
-  navButtonText: {
-    color: '#333',
-    fontWeight: '500',
-    fontSize: SIZES.CAPTION
+  logo: {
+    width: scale(30),
+    height: scale(30)
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+  },
+  loadingText: {
+    marginTop: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
+    color: '#666'
   },
   searchContainer: {
     padding: SIZES.PADDING_M,
@@ -371,157 +353,198 @@ const styles = StyleSheet.create({
   searchInput: {
     height: SIZES.INPUT_HEIGHT,
     backgroundColor: '#f5f5f5',
-    borderRadius: SIZES.RADIUS_S,
+    borderRadius: SIZES.RADIUS_M,
     paddingHorizontal: SIZES.PADDING_M,
     fontSize: SIZES.BODY,
     color: '#333'
   },
-  filterTabs: {
-    flexDirection: 'row',
+  filtersScrollView: {
     backgroundColor: '#fff',
-    paddingVertical: SIZES.PADDING_S,
-    paddingHorizontal: SIZES.PADDING_S,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    ...getShadowStyles(1)
+    marginBottom: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
-  filterTab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: SIZES.PADDING_XS,
-    marginHorizontal: SIZES.PADDING_XS,
-    borderRadius: SIZES.RADIUS_S,
-    backgroundColor: '#f0f0f0',
-    minHeight: verticalScale(36),
-    justifyContent: 'center'
+  filtersContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10
   },
-  activeFilterTab: {
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    margin: 4,
+    backgroundColor: '#f0f0f0'
+  },
+  activeFilterButton: {
     backgroundColor: '#4e9af1'
   },
-  filterTabText: {
-    fontWeight: '500',
-    color: '#666',
-    fontSize: SIZES.CAPTION
+  filterButtonText: {
+    fontSize: 14,
+    color: '#666'
   },
-  activeFilterTabText: {
-    color: '#fff'
+  activeFilterText: {
+    color: '#fff',
+    fontWeight: '500'
   },
   listContainer: {
-    padding: SIZES.PADDING_M
+    padding: 16,
   },
   vendorCard: {
     backgroundColor: '#fff',
-    borderRadius: SIZES.RADIUS_M,
-    padding: SIZES.PADDING_M,
-    marginBottom: SIZES.PADDING_M,
-    ...getShadowStyles(3)
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   vendorInfo: {
-    marginBottom: SIZES.PADDING_M
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
+    paddingBottom: 12,
+    marginBottom: 12,
   },
   vendorName: {
-    fontSize: SIZES.SUBTITLE,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: SIZES.PADDING_XS
+    marginBottom: 4,
   },
   vendorEmail: {
-    fontSize: SIZES.BODY,
+    fontSize: 14,
     color: '#666',
-    marginBottom: SIZES.PADDING_M
+    marginBottom: 6,
   },
   vendorDetail: {
-    fontSize: SIZES.BODY,
-    color: '#555',
-    marginBottom: SIZES.PADDING_XS
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
   },
   statusText: {
-    fontWeight: '600'
-  },
-  pendingText: {
-    color: '#f0ad4e'
+    fontWeight: '600',
   },
   approvedText: {
-    color: '#5cb85c'
+    color: '#5cb85c',
   },
   rejectedText: {
-    color: '#d9534f'
+    color: '#d9534f',
+  },
+  pendingText: {
+    color: '#f0ad4e',
   },
   profileInfo: {
     backgroundColor: '#f8f8f8',
-    padding: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_S,
-    marginTop: SIZES.PADDING_M
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
   },
   profileInfoTitle: {
-    fontSize: SIZES.BODY,
+    fontSize: 14,
     fontWeight: '600',
     color: '#444',
-    marginBottom: SIZES.PADDING_S
+    marginBottom: 6,
   },
   profileInfoText: {
-    fontSize: SIZES.CAPTION,
-    color: '#555',
-    marginBottom: SIZES.PADDING_XS
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
   },
   actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'flex-end'
+    justifyContent: 'flex-end',
   },
   actionButton: {
-    paddingVertical: SIZES.PADDING_S,
-    paddingHorizontal: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_S,
-    marginLeft: SIZES.PADDING_S,
-    minHeight: verticalScale(36),
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: scale(80),
-    ...getShadowStyles(2)
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginLeft: 8,
   },
   approveButton: {
-    backgroundColor: '#5cb85c'
+    backgroundColor: '#5cb85c',
   },
   rejectButton: {
-    backgroundColor: '#d9534f'
+    backgroundColor: '#d9534f',
   },
   buttonText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: SIZES.CAPTION
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.PADDING_L
+    padding: 24,
+    backgroundColor: '#fff',
+    margin: 16,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   emptyText: {
-    fontSize: SIZES.SUBTITLE,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: SIZES.PADDING_S
+    marginBottom: 8
   },
   emptySubtext: {
-    fontSize: SIZES.BODY,
+    fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginBottom: SIZES.PADDING_M
+    marginBottom: 16
   },
-  clearSearchButton: {
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_M,
+  btnAction: {
     backgroundColor: '#4e9af1',
-    borderRadius: SIZES.RADIUS_S,
-    minHeight: SIZES.BUTTON_HEIGHT,
-    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     alignItems: 'center',
-    ...getShadowStyles(2)
+    minWidth: scale(120),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  clearSearchText: {
+  btnActionText: {
     color: '#fff',
-    fontWeight: '500',
-    fontSize: SIZES.BODY
+    fontSize: 16,
+    fontWeight: '600',
   }
 });
 

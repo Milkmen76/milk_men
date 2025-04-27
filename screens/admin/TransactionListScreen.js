@@ -9,8 +9,11 @@ import {
   Alert,
   TextInput,
   SafeAreaView,
-  Platform
+  Platform,
+  StatusBar,
+  Image
 } from 'react-native';
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
@@ -236,95 +239,150 @@ const TransactionListScreen = () => {
           </View>
         </View>
         
-        <TouchableOpacity
-          style={styles.viewButton}
-          onPress={() => {
-            // Could implement detailed view
-            Alert.alert(
-              `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} Details`,
-              `ID: #${item.transaction_id || item.order_id || item.subscription_id}\nUser: ${user.name}\nVendor: ${vendor.name}`
-            );
-          }}
-        >
-          <Text style={styles.viewButtonText}>View Details</Text>
-        </TouchableOpacity>
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => {
+              // Could implement detailed view
+              Alert.alert(
+                `${item.type.charAt(0).toUpperCase() + item.type.slice(1)} Details`,
+                `ID: #${item.transaction_id || item.order_id || item.subscription_id}\nUser: ${user.name}\nVendor: ${vendor.name}`
+              );
+            }}
+          >
+            <Text style={styles.actionButtonText}>View Details</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
 
   const renderFilterTabs = () => (
-    <View style={styles.filterTabs}>
-      {['all', 'transaction', 'order', 'subscription'].map(filter => (
-        <TouchableOpacity
-          key={filter}
-          style={[styles.filterTab, activeFilter === filter && styles.activeFilterTab]}
-          onPress={() => setActiveFilter(filter)}
+    <View style={styles.filtersScrollView}>
+      <View style={styles.filtersContainer}>
+        <TouchableOpacity 
+          style={[
+            styles.filterButton, 
+            activeFilter === 'all' && styles.activeFilterButton
+          ]}
+          onPress={() => setActiveFilter('all')}
         >
-          <Text 
-            style={[styles.filterText, activeFilter === filter && styles.activeFilterText]}
-          >
-            {filter === 'all' ? 'All' : 
-              filter.charAt(0).toUpperCase() + filter.slice(1) + 's'}
+          <Text style={[
+            styles.filterButtonText, 
+            activeFilter === 'all' && styles.activeFilterText
+          ]}>
+            All
           </Text>
         </TouchableOpacity>
-      ))}
+        
+        <TouchableOpacity 
+          style={[
+            styles.filterButton, 
+            activeFilter === 'transaction' && styles.activeFilterButton
+          ]}
+          onPress={() => setActiveFilter('transaction')}
+        >
+          <Text style={[
+            styles.filterButtonText, 
+            activeFilter === 'transaction' && styles.activeFilterText
+          ]}>
+            Transactions
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.filterButton, 
+            activeFilter === 'order' && styles.activeFilterButton
+          ]}
+          onPress={() => setActiveFilter('order')}
+        >
+          <Text style={[
+            styles.filterButtonText, 
+            activeFilter === 'order' && styles.activeFilterText
+          ]}>
+            Orders
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.filterButton, 
+            activeFilter === 'subscription' && styles.activeFilterButton
+          ]}
+          onPress={() => setActiveFilter('subscription')}
+        >
+          <Text style={[
+            styles.filterButtonText, 
+            activeFilter === 'subscription' && styles.activeFilterText
+          ]}>
+            Subscriptions
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
-  
+  const renderNavButtons = () => (
+    <View style={styles.filtersScrollView}>
+     
+    </View>
+  );
+
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading data...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading transactions...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const filteredData = getFilteredData();
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>Transactions & Orders</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <View style={styles.headerContainer}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.welcomeText}>Admin Dashboard</Text>
+            <Text style={styles.businessName}>Transactions</Text>
+          </View>
           <TouchableOpacity 
-            style={styles.signOutButton}
-            onPress={() => {
-              Alert.alert(
-                'Sign Out',
-                'Are you sure you want to sign out?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Sign Out', onPress: logout, style: 'destructive' }
-                ]
-              );
-            }}
+            style={styles.logoContainer}
+            onPress={() => navigation.navigate('ProfileTab')}
+            activeOpacity={0.7}
           >
-            <Text style={styles.signOutText}>Sign Out</Text>
+            <Image 
+              source={require('../../assets/milk-icon.png')} 
+              style={styles.logo} 
+              resizeMode="contain"
+            />
           </TouchableOpacity>
         </View>
-    
       </View>
-      
+        
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by user, vendor or ID..."
+          placeholder="Search transactions..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           clearButtonMode="while-editing"
         />
       </View>
-      
+        
+      {renderNavButtons()}
       {renderFilterTabs()}
-      
-      {filteredData.length > 0 ? (
+        
+      {getFilteredData().length > 0 ? (
         <FlatList
-          data={filteredData}
+          data={getFilteredData()}
           renderItem={renderTransactionItem}
-          keyExtractor={(item, index) => 
-            (item.transaction_id || item.order_id || item.subscription_id || index.toString())
+          keyExtractor={(item) => 
+            (item.transaction_id || item.order_id || item.subscription_id) + item.type
           }
           contentContainerStyle={styles.listContainer}
           refreshing={refreshing}
@@ -332,21 +390,19 @@ const TransactionListScreen = () => {
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No data found</Text>
+          <Text style={styles.emptyText}>No transactions found</Text>
           <Text style={styles.emptySubtext}>
             {searchQuery 
-              ? `No results matching "${searchQuery}"`
-              : activeFilter !== 'all' 
-                ? `No ${activeFilter}s are currently available`
-                : 'There are no transactions, orders, or subscriptions in the system yet'}
+              ? 'No transactions match your search criteria' 
+              : `No ${activeFilter !== 'all' ? activeFilter : ''} transactions available`
+            }
           </Text>
-          
           {searchQuery && (
             <TouchableOpacity 
-              style={styles.clearSearchButton}
+              style={styles.btnAction}
               onPress={() => setSearchQuery('')}
             >
-              <Text style={styles.clearSearchText}>Clear Search</Text>
+              <Text style={styles.btnActionText}>Clear Search</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -356,110 +412,81 @@ const TransactionListScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f9f9f9',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666'
-  },
-  header: {
+  headerContainer: {
     backgroundColor: '#fff',
-    paddingTop: 16,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 3,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
   },
-  titleContainer: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 12
+    padding: SIZES.PADDING_M,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
   },
-  title: {
-    fontSize: 24,
+  welcomeText: {
+    fontSize: SIZES.BODY,
+    color: '#666'
+  },
+  businessName: {
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
-  signOutButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: '#ff5252'
+  logoContainer: {
+    width: scale(44),
+    height: scale(44),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: SIZES.RADIUS_ROUND,
+    backgroundColor: '#f0f8ff'
   },
-  signOutText: {
-    color: '#fff',
-    fontWeight: '600'
+  logo: {
+    width: scale(30),
+    height: scale(30)
   },
-  headerButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: 8,
-    flexWrap: 'wrap',
-    justifyContent: 'center'
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
   },
-  navButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginHorizontal: 4,
-    marginBottom: 8,
-    borderRadius: 6,
-    backgroundColor: '#f0f0f0',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
-  },
-  navButtonText: {
-    color: '#333',
-    fontWeight: '500'
+  loadingText: {
+    marginTop: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
+    color: '#666'
   },
   searchContainer: {
-    padding: 12,
+    padding: SIZES.PADDING_M,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee'
   },
   searchInput: {
-    height: 40,
+    height: SIZES.INPUT_HEIGHT,
     backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 15,
+    borderRadius: SIZES.RADIUS_M,
+    paddingHorizontal: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
     color: '#333'
   },
-  filterTabs: {
-    flexDirection: 'row',
+  filtersScrollView: {
     backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    marginBottom: 8,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -472,31 +499,38 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  filterTab: {
-    flex: 1,
-    alignItems: 'center',
+  filtersContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10
+  },
+  filterButton: {
     paddingVertical: 8,
-    marginHorizontal: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    margin: 4,
     backgroundColor: '#f0f0f0'
   },
-  activeFilterTab: {
+  activeFilterButton: {
     backgroundColor: '#4e9af1'
   },
-  filterText: {
-    fontWeight: '500',
+  filterButtonText: {
+    fontSize: 14,
     color: '#666'
   },
   activeFilterText: {
-    color: '#fff'
+    color: '#fff',
+    fontWeight: '500'
   },
   listContainer: {
-    padding: 16
+    padding: 16,
   },
   itemCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 12,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
@@ -506,7 +540,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 2,
       },
     }),
   },
@@ -514,14 +548,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
+    borderBottomColor: '#f5f5f5'
   },
   typeBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 8
   },
   typeText: {
     color: '#fff',
@@ -529,53 +563,74 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   idText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666'
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333'
   },
   cardBody: {
-    padding: 16,
+    padding: 16
   },
   detailRow: {
     flexDirection: 'row',
-    marginBottom: 10
+    marginBottom: 8
   },
   detailLabel: {
-    width: 90,
     fontSize: 14,
-    fontWeight: '500',
-    color: '#666'
+    color: '#666',
+    width: 80,
+    fontWeight: '500'
   },
   detailValue: {
-    flex: 1,
     fontSize: 14,
-    color: '#333'
+    color: '#333',
+    flex: 1
   },
   amountText: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#4e9af1'
+    color: '#4e9af1',
+    fontWeight: '600'
   },
   statusText: {
     fontSize: 14,
     fontWeight: '600'
   },
-  viewButton: {
-    backgroundColor: '#f0f8ff',
-    padding: 12,
-    alignItems: 'center',
+  cardActions: {
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0'
+    borderTopColor: '#f5f5f5',
+    padding: 12,
+    flexDirection: 'row',
+    justifyContent: 'flex-end'
   },
-  viewButtonText: {
-    color: '#4e9af1',
-    fontWeight: '600'
+  actionButton: {
+    backgroundColor: '#4e9af1',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500'
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: 24,
+    backgroundColor: '#fff',
+    margin: 16,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   emptyText: {
     fontSize: 18,
@@ -589,15 +644,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16
   },
-  clearSearchButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  btnAction: {
     backgroundColor: '#4e9af1',
-    borderRadius: 6
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    minWidth: scale(120),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  clearSearchText: {
+  btnActionText: {
     color: '#fff',
-    fontWeight: '500'
+    fontSize: 16,
+    fontWeight: '600',
   }
 });
 

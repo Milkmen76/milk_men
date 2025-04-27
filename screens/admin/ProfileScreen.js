@@ -67,16 +67,21 @@ const ProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <View style={styles.headerContainer}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.welcomeText}>Admin Dashboard</Text>
+            <Text style={styles.businessName}>My Profile</Text>
+          </View>
+        </View>
+      </View>
+
       <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Admin Profile</Text>
-        </View>
-        
         <View style={styles.profileCard}>
           <View style={styles.profileImageContainer}>
             <Image 
@@ -135,32 +140,13 @@ const ProfileScreen = () => {
         <View style={styles.navigationSection}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           
-          <TouchableOpacity 
-            style={styles.navButton}
-            onPress={() => navigation.navigate('VendorApproval')}
-          >
-            <Text style={styles.navButtonText}>Vendor Approvals</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.navButton}
-            onPress={() => navigation.navigate('UserListScreen')}
-          >
-            <Text style={styles.navButtonText}>User Management</Text>
-          </TouchableOpacity>
+         
           
           <TouchableOpacity 
             style={styles.navButton}
             onPress={() => navigation.navigate('ProductListScreen')}
           >
             <Text style={styles.navButtonText}>Product Management</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.navButton}
-            onPress={() => navigation.navigate('TransactionListScreen')}
-          >
-            <Text style={styles.navButtonText}>Transaction History</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -176,40 +162,75 @@ const ProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    backgroundColor: '#f9f9f9',
   },
-  scrollView: {
-    flex: 1,
-    paddingBottom: SIZES.PADDING_L
-  },
-  scrollContent: {
-    paddingBottom: SIZES.PADDING_L
+  headerContainer: {
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   header: {
-    paddingVertical: SIZES.PADDING_L,
-    paddingHorizontal: SIZES.PADDING_M,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SIZES.PADDING_M,
+    paddingVertical: 16,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    ...getShadowStyles(2),
   },
-  title: {
+  welcomeText: {
+    fontSize: SIZES.BODY,
+    color: '#666'
+  },
+  businessName: {
     fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
+  container: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
+  },
+  loadingContainer: {
+    padding: SIZES.PADDING_L,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 200,
+  },
+  loadingText: {
+    marginTop: SIZES.PADDING_M,
+    color: '#666',
+    fontSize: SIZES.BODY
+  },
   profileCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    marginHorizontal: SIZES.PADDING_M,
-    marginTop: SIZES.PADDING_L,
-    borderRadius: SIZES.RADIUS_L,
-    padding: SIZES.PADDING_M,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
-    ...getShadowStyles(3),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   profileImageContainer: {
     width: scale(70),
@@ -218,7 +239,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f8ff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SIZES.PADDING_M
+    marginRight: 16
   },
   profileImage: {
     width: scale(40),
@@ -228,47 +249,38 @@ const styles = StyleSheet.create({
     flex: 1
   },
   profileName: {
-    fontSize: SIZES.SUBTITLE,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: SIZES.PADDING_S
+    marginBottom: 4
   },
   profileEmail: {
-    fontSize: SIZES.CAPTION,
+    fontSize: 14,
     color: '#666',
-    marginBottom: SIZES.PADDING_S
+    marginBottom: 8
   },
   roleBadge: {
     backgroundColor: '#d9534f',
-    paddingHorizontal: SIZES.PADDING_S,
-    paddingVertical: SIZES.PADDING_XS,
-    borderRadius: SIZES.RADIUS_S,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
     alignSelf: 'flex-start'
   },
   roleText: {
     color: '#fff',
-    fontSize: SIZES.SMALL,
+    fontSize: 12,
     fontWeight: '600'
   },
-  loadingContainer: {
-    padding: SIZES.PADDING_L,
-    alignItems: 'center'
-  },
-  loadingText: {
-    marginTop: SIZES.PADDING_M,
-    color: '#666',
-    fontSize: SIZES.BODY
-  },
   statsContainer: {
-    paddingHorizontal: SIZES.PADDING_M,
-    paddingVertical: SIZES.PADDING_L
+    paddingHorizontal: 16,
+    marginTop: 24
   },
   sectionTitle: {
-    fontSize: SIZES.SUBTITLE,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: SIZES.PADDING_M,
-    marginLeft: SIZES.PADDING_XS
+    marginBottom: 16,
+    marginLeft: 4
   },
   statsGrid: {
     flexDirection: 'row',
@@ -278,34 +290,56 @@ const styles = StyleSheet.create({
   statCard: {
     backgroundColor: '#fff',
     width: '48%',
-    borderRadius: SIZES.RADIUS_M,
-    padding: SIZES.PADDING_M,
-    marginBottom: SIZES.PADDING_M,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     alignItems: 'center',
-    ...getShadowStyles(2),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   statValue: {
-    fontSize: SIZES.TITLE,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#4e9af1',
-    marginBottom: SIZES.PADDING_XS
+    marginBottom: 6
   },
   statLabel: {
-    fontSize: SIZES.CAPTION,
+    fontSize: 14,
     color: '#666'
   },
   navigationSection: {
-    padding: SIZES.PADDING_M,
-    marginTop: SIZES.PADDING_S
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 24
   },
   navButton: {
     backgroundColor: '#fff',
-    borderRadius: SIZES.RADIUS_M,
-    padding: SIZES.PADDING_M,
-    marginBottom: SIZES.PADDING_M,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    ...getShadowStyles(2),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   navButtonText: {
     fontSize: SIZES.BODY,
@@ -314,11 +348,22 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     backgroundColor: '#ff5252',
-    borderRadius: SIZES.RADIUS_M,
-    padding: SIZES.PADDING_M,
-    marginTop: SIZES.PADDING_S,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 8,
     alignItems: 'center',
-    ...getShadowStyles(2),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   signOutText: {
     fontSize: SIZES.BODY,

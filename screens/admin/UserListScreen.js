@@ -11,7 +11,8 @@ import {
   SafeAreaView,
   Platform,
   Animated,
-  StatusBar
+  StatusBar,
+  Image
 } from 'react-native';
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
@@ -20,7 +21,7 @@ import * as localData from '../../services/localData';
 
 const UserListScreen = () => {
   const navigation = useNavigation();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,24 +210,28 @@ const UserListScreen = () => {
     });
     
     return (
-      <View style={styles.filterTabs}>
-        {['all', 'user', 'vendor', 'admin'].map(filter => (
-          <TouchableOpacity
-            key={filter}
-            style={[styles.filterTab, activeFilter === filter && styles.activeFilterTab]}
-            onPress={() => setActiveFilter(filter)}
-          >
-            <Animated.Text 
+      <View style={styles.filtersScrollView}>
+        <View style={styles.filtersContainer}>
+          {['all', 'user', 'vendor', 'admin'].map(filter => (
+            <TouchableOpacity
+              key={filter}
               style={[
-                styles.filterText, 
-                activeFilter === filter && styles.activeFilterText,
-                activeFilter === filter && { transform: [{ translateX }] }
+                styles.filterButton, 
+                activeFilter === filter && styles.activeFilterButton
               ]}
+              onPress={() => setActiveFilter(filter)}
             >
-              {filter === 'all' ? 'All Users' : filter.charAt(0).toUpperCase() + filter.slice(1) + 's'}
-            </Animated.Text>
-          </TouchableOpacity>
-        ))}
+              <Text 
+                style={[
+                  styles.filterButtonText, 
+                  activeFilter === filter && styles.activeFilterText
+                ]}
+              >
+                {filter === 'all' ? 'All Users' : filter.charAt(0).toUpperCase() + filter.slice(1) + 's'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     );
   };
@@ -236,7 +241,7 @@ const UserListScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar backgroundColor="#fff" barStyle="dark-content" />
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4e9af1" />
           <Text style={styles.loadingText}>Loading users...</Text>
@@ -247,69 +252,66 @@ const UserListScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
-      <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <View style={styles.headerContainer}>
         <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>User Management</Text>
-            <TouchableOpacity 
-              style={styles.signOutButton}
-              onPress={() => {
-                Alert.alert(
-                  'Sign Out',
-                  'Are you sure you want to sign out?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Sign Out', onPress: logout, style: 'destructive' }
-                  ]
-                );
-              }}
-            >
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </TouchableOpacity>
+          <View>
+            <Text style={styles.welcomeText}>Admin Dashboard</Text>
+            <Text style={styles.businessName}>User Management</Text>
           </View>
+          <TouchableOpacity 
+            style={styles.logoContainer}
+            onPress={() => navigation.navigate('ProfileTab')}
+            activeOpacity={0.7}
+          >
+            <Image 
+              source={require('../../assets/milk-icon.png')} 
+              style={styles.logo} 
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
         </View>
-      
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or email..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
-          />
-        </View>
-        
-        {renderFilterTabs()}
-        
-        {filteredUsers().length > 0 ? (
-          <FlatList
-            data={filteredUsers()}
-            renderItem={renderUserItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContainer}
-            refreshing={refreshing}
-            onRefresh={loadUsers}
-          />
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No users found</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery
-                ? `No results matching "${searchQuery}"`
-                : `No ${activeFilter !== 'all' ? activeFilter : ''} users available`}
-            </Text>
-            {searchQuery && (
-              <TouchableOpacity 
-                style={styles.clearSearchButton}
-                onPress={() => setSearchQuery('')}
-              >
-                <Text style={styles.clearSearchText}>Clear Search</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
       </View>
+      
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by name or email..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          clearButtonMode="while-editing"
+        />
+      </View>
+      
+      {renderFilterTabs()}
+      
+      {filteredUsers().length > 0 ? (
+        <FlatList
+          data={filteredUsers()}
+          renderItem={renderUserItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          refreshing={refreshing}
+          onRefresh={loadUsers}
+        />
+      ) : (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No users found</Text>
+          <Text style={styles.emptySubtext}>
+            {searchQuery
+              ? `No results matching "${searchQuery}"`
+              : `No ${activeFilter !== 'all' ? activeFilter : ''} users available`}
+          </Text>
+          {searchQuery && (
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={styles.actionButtonText}>Clear Search</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -317,80 +319,65 @@ const UserListScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    backgroundColor: '#f9f9f9',
+  },
+  headerContainer: {
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fa'
+    backgroundColor: '#f9f9f9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
   },
   loadingText: {
-    marginTop: SIZES.PADDING_S,
-    color: '#666',
-    fontSize: SIZES.BODY
+    marginTop: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
+    color: '#666'
   },
   header: {
-    backgroundColor: '#fff',
-    paddingTop: SIZES.PADDING_M,
-    paddingBottom: SIZES.PADDING_M,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    ...getShadowStyles(2)
-  },
-  titleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SIZES.PADDING_M,
-    marginBottom: SIZES.PADDING_M
+    padding: SIZES.PADDING_M,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
   },
-  title: {
+  welcomeText: {
+    fontSize: SIZES.BODY,
+    color: '#666'
+  },
+  businessName: {
     fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333'
   },
-  signOutButton: {
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    backgroundColor: '#ff5252',
-    minHeight: verticalScale(30),
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  signOutText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: SIZES.CAPTION
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: SIZES.PADDING_S,
-    flexWrap: 'wrap',
-    justifyContent: 'center'
-  },
-  navButton: {
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_S,
-    marginHorizontal: SIZES.PADDING_XS,
-    marginBottom: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    backgroundColor: '#f0f0f0',
-    minHeight: verticalScale(32),
-    minWidth: scale(80),
+  logoContainer: {
+    width: scale(44),
+    height: scale(44),
     justifyContent: 'center',
     alignItems: 'center',
-    ...getShadowStyles(1)
+    borderRadius: SIZES.RADIUS_ROUND,
+    backgroundColor: '#f0f8ff'
   },
-  navButtonText: {
-    color: '#333',
-    fontWeight: '500',
-    fontSize: SIZES.CAPTION
+  logo: {
+    width: scale(30),
+    height: scale(30)
   },
   searchContainer: {
     padding: SIZES.PADDING_M,
@@ -401,61 +388,83 @@ const styles = StyleSheet.create({
   searchInput: {
     height: SIZES.INPUT_HEIGHT,
     backgroundColor: '#f5f5f5',
-    borderRadius: SIZES.RADIUS_S,
+    borderRadius: SIZES.RADIUS_M,
     paddingHorizontal: SIZES.PADDING_M,
     fontSize: SIZES.BODY,
     color: '#333'
   },
-  filterTabs: {
-    flexDirection: 'row',
+  filtersScrollView: {
     backgroundColor: '#fff',
-    padding: SIZES.PADDING_S,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    ...getShadowStyles(1)
+    marginBottom: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
-  filterTab: {
-    flex: 1,
-    paddingVertical: SIZES.PADDING_S,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-    minHeight: verticalScale(36),
-    justifyContent: 'center'
+  filtersContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10
   },
-  activeFilterTab: {
-    borderBottomColor: '#4e9af1'
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    margin: 4,
+    backgroundColor: '#f0f0f0'
   },
-  filterText: {
-    color: '#666',
-    fontWeight: '500',
-    fontSize: SIZES.CAPTION
+  activeFilterButton: {
+    backgroundColor: '#4e9af1'
+  },
+  filterButtonText: {
+    fontSize: 14,
+    color: '#666'
   },
   activeFilterText: {
-    color: '#4e9af1'
+    color: '#fff',
+    fontWeight: '500'
   },
   listContainer: {
     padding: SIZES.PADDING_M
   },
   userCard: {
     backgroundColor: '#fff',
-    borderRadius: SIZES.RADIUS_M,
-    padding: SIZES.PADDING_M,
-    marginBottom: SIZES.PADDING_M,
-    ...getShadowStyles(3)
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   userHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SIZES.PADDING_M
+    marginBottom: 10
   },
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center'
   },
   userName: {
-    fontSize: SIZES.SUBTITLE,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333'
   },
@@ -466,80 +475,103 @@ const styles = StyleSheet.create({
     marginLeft: SIZES.PADDING_S
   },
   roleBadge: {
-    paddingHorizontal: SIZES.PADDING_S,
-    paddingVertical: SIZES.PADDING_XS,
-    borderRadius: SIZES.RADIUS_S
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8
   },
   roleText: {
     color: '#fff',
-    fontSize: SIZES.SMALL,
+    fontSize: 12,
     fontWeight: '600'
   },
   userInfo: {
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    paddingTop: SIZES.PADDING_M,
-    marginTop: SIZES.PADDING_XS
+    paddingTop: 12,
+    marginTop: 4
   },
   userEmail: {
-    fontSize: SIZES.BODY,
+    fontSize: 14,
     color: '#666',
-    marginBottom: SIZES.PADDING_S
+    marginBottom: 6
   },
   userDetail: {
-    fontSize: SIZES.CAPTION,
-    color: '#777',
-    marginBottom: SIZES.PADDING_XS
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4
   },
   businessInfoContainer: {
     backgroundColor: '#f8f8f8',
-    padding: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_S,
-    marginTop: SIZES.PADDING_M,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
   },
   businessInfoTitle: {
-    fontSize: SIZES.CAPTION,
+    fontSize: 14,
     fontWeight: '600',
     color: '#444',
-    marginBottom: SIZES.PADDING_XS
+    marginBottom: 4
   },
   businessInfoText: {
-    fontSize: SIZES.SMALL,
+    fontSize: 13,
     color: '#666',
-    marginBottom: SIZES.PADDING_XXS
+    marginBottom: 2
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.PADDING_L
+    padding: 24,
+    backgroundColor: '#fff',
+    margin: 16,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   emptyText: {
-    fontSize: SIZES.SUBTITLE,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: SIZES.PADDING_S
+    marginBottom: 8
   },
   emptySubtext: {
-    fontSize: SIZES.BODY,
+    fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginBottom: SIZES.PADDING_M
+    marginBottom: 16
   },
-  clearSearchButton: {
-    paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_M,
+  actionButton: {
     backgroundColor: '#4e9af1',
-    borderRadius: SIZES.RADIUS_S,
-    minHeight: SIZES.BUTTON_HEIGHT,
-    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     alignItems: 'center',
-    ...getShadowStyles(2)
+    minWidth: scale(120),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  clearSearchText: {
+  actionButtonText: {
     color: '#fff',
-    fontWeight: '500',
-    fontSize: SIZES.BODY
+    fontSize: 16,
+    fontWeight: '600',
   }
 });
 
