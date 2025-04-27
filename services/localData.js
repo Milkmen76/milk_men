@@ -240,7 +240,7 @@ export const updateUser = async (id, userData) => {
 };
 
 // New function to update user avatar
-export const updateUserAvatar = async (userId, avatarName) => {
+export const updateUserAvatar = async (userId, avatarName, customAvatarBase64) => {
   try {
     const users = await getUsers();
     if (!users) return false;
@@ -253,8 +253,18 @@ export const updateUserAvatar = async (userId, avatarName) => {
       users[index].profile_info = {};
     }
     
-    // Update avatar in profile_info
-    users[index].profile_info.avatar = avatarName;
+    if (customAvatarBase64) {
+      // Update with custom avatar
+      users[index].profile_info.custom_avatar_base64 = customAvatarBase64;
+      users[index].profile_info.avatar = null; // Clear predefined avatar
+    } else if (avatarName) {
+      // Update with predefined avatar
+      users[index].profile_info.avatar = avatarName;
+      // Clear any existing custom avatar
+      if (users[index].profile_info.custom_avatar_base64) {
+        delete users[index].profile_info.custom_avatar_base64;
+      }
+    }
     
     const success = await writeJsonFile('users.json', users);
     return success;

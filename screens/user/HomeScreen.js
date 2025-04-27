@@ -264,33 +264,11 @@ const HomeScreen = () => {
     navigation.navigate('ProfileTab');
   };
 
-  const handleCategoryPress = (category) => {
-    setCategoryLoading(true);
-    setCategoryModalVisible(true);
-    setSelectedCategory(category);
+  const handleCategoryPress = (categoryName) => {
+    console.log('Navigating to category:', categoryName);
     
-    // Filter products by the selected category
-    const filtered = products.filter(product => {
-      return product.category === category;
-    });
-    
-    setCategoryProducts(filtered);
-    
-    // Create a map of vendor names for quick lookup
-    const vendorMap = {};
-    vendors.forEach(vendor => {
-      vendorMap[vendor.id] = vendor.businessName || vendor.name;
-    });
-    
-    setCategoryVendors(vendorMap);
-    
-    // Reset selected products
-    setSelectedProducts({});
-    
-    // Simulate loading
-    setTimeout(() => {
-      setCategoryLoading(false);
-    }, 500);
+    // For React Navigation v6+
+    navigation.navigate('CategoryProducts', { categoryName });
   };
   
   // Filter vendors based on search query
@@ -467,7 +445,7 @@ const HomeScreen = () => {
   const renderCategoryItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.categoryCard}
-      onPress={() => handleCategoryPress(item)}
+      onPress={() => handleCategoryPress(item.name)}
     >
       <Image source={item.image} style={styles.categoryImage} />
       <View style={styles.categoryOverlay}>

@@ -18,6 +18,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
+import * as ImagePicker from 'expo-image-picker';
 
 // Import responsive utility functions
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
@@ -55,6 +56,9 @@ const ProfileScreen = ({ route }) => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState('milk-icon.png');
   const [availableAvatars, setAvailableAvatars] = useState([]);
+  
+  // Add state for custom avatar
+  const [customAvatar, setCustomAvatar] = useState(null);
   
   // Check if we should focus on address
   useEffect(() => {
@@ -153,6 +157,13 @@ const ProfileScreen = ({ route }) => {
         updateData.password = password;
       }
       
+      // Add custom avatar if available
+      if (customAvatar) {
+        // Extract base64 data from the data URL
+        const base64Data = customAvatar.split(',')[1];
+        updateData.profile_info.custom_avatar_base64 = base64Data;
+      }
+      
       // Update user data
       const result = await updateUserData(updateData);
       
@@ -179,6 +190,66 @@ const ProfileScreen = ({ route }) => {
   
   const handleChangeAvatar = () => {
     setShowAvatarModal(true);
+  };
+  
+  const pickImage = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+        return;
+      }
+      
+      // Launch image picker with corrected configuration
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // Get the first selected asset
+        const selectedAsset = result.assets[0];
+        
+        // If base64 data is available
+        if (selectedAsset.base64) {
+          setCustomAvatar(`data:image/jpeg;base64,${selectedAsset.base64}`);
+          
+          // Save to user profile if not in editing mode
+          if (!editing) {
+            try {
+              setLoading(true);
+              const success = await localData.updateUserAvatar(user.id, null, selectedAsset.base64);
+              
+              if (success) {
+                // Update local context
+                const updateData = {
+                  profile_info: {
+                    ...(user.profile_info || {}),
+                    custom_avatar_base64: selectedAsset.base64
+                  }
+                };
+                await updateUserData(updateData);
+                Alert.alert('Success', 'Profile picture updated successfully');
+              } else {
+                Alert.alert('Error', 'Failed to update profile picture');
+              }
+            } catch (error) {
+              console.error('Error updating profile picture:', error);
+              Alert.alert('Error', 'Failed to update profile picture');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image: ' + error.message);
+    }
   };
   
   const selectAvatar = async (avatarName) => {
@@ -329,8 +400,65 @@ const ProfileScreen = ({ route }) => {
     </>
   );
   
- 
-
+  // Update the avatar display logic to show custom avatar if available
+  const getAvatarSource = () => {
+    if (customAvatar || user?.profile_info?.custom_avatar_base64) {
+      return { uri: customAvatar || `data:image/jpeg;base64,${user.profile_info.custom_avatar_base64}` };
+    }
+    return avatarImages[selectedAvatar] || avatarImages['milk-icon.png'];
+  };
+  
+  // Create a new enhanced modal for profile picture options
+  const renderChangeProfileModal = () => (
+    <Modal
+      visible={showAvatarModal}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setShowAvatarModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Change Profile Picture</Text>
+          
+          <TouchableOpacity 
+            style={styles.photoOption}
+            onPress={() => {
+              setShowAvatarModal(false);
+              setTimeout(() => {
+                pickImage();
+              }, 500);
+            }}
+          >
+            <View style={styles.photoIconContainer}>
+              <Text style={styles.photoIcon}>📷</Text>
+            </View>
+            <View style={styles.photoTextContainer}>
+              <Text style={styles.photoOptionTitle}>Upload from Gallery</Text>
+              <Text style={styles.photoOptionDesc}>Choose an image from your phone's gallery</Text>
+            </View>
+          </TouchableOpacity>
+          
+          <Text style={styles.avatarSectionTitle}>Choose from Avatars</Text>
+          
+          <FlatList
+            data={availableAvatars}
+            renderItem={renderAvatarItem}
+            keyExtractor={item => item.value}
+            numColumns={3}
+            contentContainerStyle={styles.avatarGrid}
+          />
+          
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setShowAvatarModal(false)}
+          >
+            <Text style={styles.closeButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+  
   if (loading && !editing) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -348,9 +476,9 @@ const ProfileScreen = ({ route }) => {
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
             <Image 
-              source={avatarImages[selectedAvatar] || avatarImages['milk-icon.png']} 
+              source={getAvatarSource()} 
               style={styles.avatar}
-              resizeMode="contain"
+              resizeMode="cover"
             />
             {!editing && (
               <TouchableOpacity 
@@ -437,34 +565,8 @@ const ProfileScreen = ({ route }) => {
         </View>
       </ScrollView>
       
-      {/* Avatar Selection Modal */}
-      <Modal
-        visible={showAvatarModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowAvatarModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Avatar</Text>
-            
-            <FlatList
-              data={availableAvatars}
-              renderItem={renderAvatarItem}
-              keyExtractor={item => item.value}
-              numColumns={2}
-              contentContainerStyle={styles.avatarGrid}
-            />
-            
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowAvatarModal(false)}
-            >
-              <Text style={styles.closeButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {/* Render the enhanced profile picture modal */}
+      {renderChangeProfileModal()}
     </SafeAreaView>
   );
 };
@@ -498,18 +600,22 @@ const styles = StyleSheet.create({
     ...getShadowStyles(2)
   },
   avatarContainer: {
-    width: scale(100),
-    height: scale(100),
-    borderRadius: scale(50),
+    width: scale(120),
+    height: scale(120),
+    borderRadius: scale(60),
     backgroundColor: '#f0f8ff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SIZES.PADDING_S,
-    ...getShadowStyles(2),
+    marginBottom: SIZES.PADDING_M,
+    ...getShadowStyles(3),
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#fff',
   },
   avatar: {
-    width: scale(60),
-    height: scale(60)
+    width: scale(120),
+    height: scale(120),
+    borderRadius: scale(60),
   },
   editAvatarButton: {
     position: 'absolute',
@@ -517,11 +623,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: '#4e9af1',
     borderRadius: SIZES.RADIUS_ROUND,
-    width: scale(30),
-    height: scale(30),
+    width: scale(36),
+    height: scale(36),
     justifyContent: 'center',
     alignItems: 'center',
     ...getShadowStyles(2),
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   editAvatarText: {
     color: '#fff',
@@ -804,7 +912,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.RADIUS_M,
     padding: SIZES.PADDING_L,
     width: '90%',
-    maxHeight: '70%',
+    maxHeight: '80%',
     ...getShadowStyles(4),
   },
   modalTitle: {
@@ -825,16 +933,18 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.RADIUS_S,
     borderWidth: 1,
     borderColor: '#ddd',
-    backgroundColor: '#f8f8f8'
+    backgroundColor: '#f8f8f8',
+    width: '30%',
   },
   selectedAvatarOption: {
     borderColor: '#4e9af1',
     backgroundColor: '#e6f2ff'
   },
   avatarOptionImage: {
-    width: scale(60),
-    height: scale(60),
-    marginBottom: SIZES.PADDING_S
+    width: scale(50),
+    height: scale(50),
+    marginBottom: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_ROUND
   },
   avatarOptionText: {
     fontSize: SIZES.SMALL,
@@ -843,16 +953,60 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     marginTop: SIZES.PADDING_M,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#4e9af1',
     padding: SIZES.PADDING_S,
     borderRadius: SIZES.RADIUS_S,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd'
   },
   closeButtonText: {
     fontSize: SIZES.BODY,
+    color: '#ffffff',
+    fontWeight: 'bold'
+  },
+  photoOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SIZES.PADDING_M,
+    borderWidth: 1,
+    borderColor: '#4e9af1',
+    borderRadius: SIZES.RADIUS_M,
+    marginBottom: SIZES.PADDING_L,
+    backgroundColor: '#f0f8ff',
+    ...getShadowStyles(1),
+  },
+  photoIconContainer: {
+    width: scale(50),
+    height: scale(50),
+    borderRadius: SIZES.RADIUS_M,
+    backgroundColor: '#4e9af1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.PADDING_M,
+  },
+  photoTextContainer: {
+    flex: 1,
+  },
+  photoIcon: {
+    fontSize: SIZES.TITLE * 1.2,
+    color: '#fff',
+  },
+  photoOptionTitle: {
+    fontSize: SIZES.BODY,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: SIZES.PADDING_XS
+  },
+  photoOptionDesc: {
+    fontSize: SIZES.CAPTION,
     color: '#666'
+  },
+  avatarSectionTitle: {
+    fontSize: SIZES.SUBTITLE,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_S,
+    textAlign: 'center'
   },
 });
 

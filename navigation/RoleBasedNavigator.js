@@ -11,7 +11,7 @@ const Stack = createNativeStackNavigator();
 
 const RoleBasedNavigator = () => {
   const { user, loading } = useAuth();
-
+w
   console.log('RoleBasedNavigator - User:', user?.id);
   console.log('RoleBasedNavigator - Role:', user?.role);
   console.log('RoleBasedNavigator - Loading:', loading);
@@ -124,6 +124,13 @@ const RoleBasedNavigator = () => {
         component: require('../screens/user/HistoryScreen').default,
         options: { title: 'My Orders & Subscriptions' },
         initialParams: { initialTab: 'orders' }
+      },
+      {
+        name: 'CategoryProducts',
+        component: require('../screens/user/CategoryProductsScreen').default,
+        options: ({ route }) => ({ 
+          title: `${route.params?.categoryName || 'Category'} Products` 
+        })
       }
     ];
 
