@@ -512,23 +512,27 @@ const HomeScreen = () => {
     const isInCart = quantity > 0;
     
     return (
-      <View style={styles.productCard}>
-        <View style={styles.productImageContainer}>
-          <Image 
-            source={getProductImage(item)}
-            style={styles.productImage}
-            resizeMode="contain"
-          />
+      <View style={styles.categoryProductCard}>
+        <View style={styles.categoryProductRow}>
+          <View style={styles.categoryProductImageContainer}>
+            <Image 
+              source={getProductImage(item)}
+              style={styles.categoryProductImage}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={styles.categoryProductInfo}>
+            <Text style={styles.categoryProductName}>{item.name}</Text>
+            <TouchableOpacity
+              onPress={() => handleViewVendor(item.vendor_id)}
+            >
+              <Text style={styles.categoryVendorName}>By: {getVendorName(item.vendor_id)}</Text>
+            </TouchableOpacity>
+            <Text style={styles.categoryProductPrice}>₹{item.price.toFixed(2)}</Text>
+          </View>
         </View>
-        <View style={styles.productInfo}>
-          <Text style={styles.productName}>{item.name}</Text>
-          <TouchableOpacity
-            onPress={() => handleViewVendor(item.vendor_id)}
-          >
-            <Text style={styles.vendorNameText}>By: {getVendorName(item.vendor_id)}</Text>
-          </TouchableOpacity>
-          <Text style={styles.productPrice}>₹{item.price.toFixed(2)}</Text>
-          
+        
+        <View style={styles.categoryProductActions}>
           <View style={styles.quantityControls}>
             <TouchableOpacity 
               style={[styles.quantityButton, styles.removeButton, !isInCart && styles.disabledButton]}
@@ -549,6 +553,10 @@ const HomeScreen = () => {
               <Text style={styles.quantityButtonText}>+</Text>
             </TouchableOpacity>
           </View>
+          
+          {isInCart && (
+            <Text style={styles.itemTotal}>₹{(item.price * quantity).toFixed(2)}</Text>
+          )}
         </View>
       </View>
     );
@@ -593,36 +601,32 @@ const HomeScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerWrapper}>
-      </View>
-      
-      <View style={styles.addressHeader}>
-        <TouchableOpacity style={styles.addressButton} onPress={handleAddressPress}>
-          {address ? (
-            <>
-              <Text style={styles.addressButtonText}>{address}</Text>
-              <Text style={styles.editIcon}>✏️</Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.addressButtonText}>Add Delivery Address</Text>
-              <Text style={styles.plusIcon}>+</Text>
-            </>
-          )}
-        </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Home</Text>
         
-        <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
-          <Text style={styles.profileIcon}>👤</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+        <View style={styles.addressHeader}>
+          <TouchableOpacity style={styles.addressButton} onPress={handleAddressPress}>
+            {address ? (
+              <>
+                <Text style={styles.addressButtonText} numberOfLines={1} ellipsizeMode="tail">
+                  {address}
+                </Text>
+                <Text style={styles.editIcon}>✏️</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.addressButtonText}>Add Delivery Address</Text>
+                <Text style={styles.plusIcon}>+</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
+            <Text style={styles.profileIcon}>👤</Text>
+          </TouchableOpacity>
+        </View>
+        
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -630,7 +634,7 @@ const HomeScreen = () => {
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
-            clearButtonMode="while-editing"
+            placeholderTextColor="#999"
           />
           <Text style={styles.searchIcon}>🔍</Text>
           {searchQuery.length > 0 && (
@@ -642,7 +646,14 @@ const HomeScreen = () => {
             </TouchableOpacity>
           )}
         </View>
-        
+      </View>
+      
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             {searchQuery ? 'Search Results' : 'Suggested Vendors'}
@@ -699,7 +710,7 @@ const HomeScreen = () => {
             />
           ) : (
             <View style={styles.emptyStateContainer}>
-              <Text style={styles.emptyStateText}>No vendors available at the moment.</Text>
+              <Text style={styles.emptyStateText}>No products available at the moment.</Text>
             </View>
           )}
         </View>
@@ -762,23 +773,14 @@ const HomeScreen = () => {
           )}
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  headerWrapper: {
-    paddingTop: 10,
-    paddingHorizontal: 15,
-  },
-  headerTitle: {
-    fontSize: 16,
-    color: '#555',
-    marginBottom: 5,
+    backgroundColor: '#f9f9f9',
   },
   loadingContainer: {
     flex: 1,
@@ -786,63 +788,88 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
   },
+  header: {
+    backgroundColor: '#fff',
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
   addressHeader: {
-    backgroundColor: '#D3CBFB',
-    padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   addressButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   addressButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '500',
     color: '#333',
     maxWidth: windowWidth - 120, // Limit width to prevent overflow
   },
   plusIcon: {
-    fontSize: 24,
-    fontWeight: '400',
+    fontSize: 16,
     color: '#333',
-    marginLeft: 10,
+    marginLeft: 8,
+  },
+  editIcon: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 8,
   },
   profileButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#fff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   profileIcon: {
-    fontSize: 24,
+    fontSize: 20,
   },
   searchContainer: {
+    position: 'relative',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    position: 'relative',
   },
   searchInput: {
     flex: 1,
-    height: 45,
-    fontSize: 16,
-    paddingRight: 30,
+    height: 40,
+    fontSize: 15,
+    paddingHorizontal: 16,
+    color: '#333',
   },
   searchIcon: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#888',
+    position: 'absolute',
+    right: 16,
   },
   clearSearch: {
     position: 'absolute',
@@ -861,36 +888,62 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    marginHorizontal: 12,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   sectionTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   seeAllText: {
-    fontSize: 16,
-    color: '#4eb0f5',
+    fontSize: 14,
+    color: '#4e9af1',
     fontWeight: '500',
   },
-  // Suggested Vendors
   suggestedVendorList: {
     paddingVertical: 10,
   },
   suggestedVendorCard: {
     width: windowWidth * 0.65,
     height: 180,
-    borderRadius: 15,
+    borderRadius: 12,
     overflow: 'hidden',
     marginRight: 15,
     position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   suggestedVendorImage: {
     width: '100%',
@@ -902,10 +955,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 15,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   suggestedVendorName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#fff',
     marginBottom: 5,
@@ -932,17 +985,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
   },
-  // Categories
   categoryList: {
     paddingVertical: 10,
   },
   categoryCard: {
     width: 110,
     height: 110,
-    borderRadius: 15,
+    borderRadius: 12,
     overflow: 'hidden',
     marginRight: 15,
     position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   categoryImage: {
     width: '100%',
@@ -962,7 +1025,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  // Popular Vendors
   popularVendorList: {
     paddingVertical: 10,
   },
@@ -977,6 +1039,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     marginBottom: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   popularVendorImage: {
     width: '100%',
@@ -1013,29 +1086,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#333',
   },
-  // Empty States
   emptyStateContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'white',
     padding: 15,
-    borderRadius: 16,
+    borderRadius: 12,
     marginVertical: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   emptyStateText: {
     fontSize: 15,
     color: '#666',
     textAlign: 'center',
   },
-  // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
+    backgroundColor: '#f9f9f9',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1043,17 +1120,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#4e9af1',
     paddingVertical: 15,
     paddingHorizontal: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   backButton: {
     marginRight: 15,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backButtonText: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
     textTransform: 'capitalize',
@@ -1062,18 +1156,23 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  // Product Card
   productCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
-    flexDirection: 'row',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    marginRight: 16,
+    width: 180,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   productImageContainer: {
     width: 80,
@@ -1083,7 +1182,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f8ff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   productImage: {
     width: 60,
@@ -1093,7 +1193,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   productName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 4,
     color: '#333',
@@ -1112,11 +1212,13 @@ const styles = StyleSheet.create({
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
   quantityButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1131,7 +1233,7 @@ const styles = StyleSheet.create({
   },
   quantityButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   quantityContainer: {
@@ -1155,11 +1257,17 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   cartInfo: {
     flex: 1,
@@ -1184,23 +1292,84 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  editIcon: {
-    fontSize: 18,
-    color: '#333',
-    marginLeft: 10,
-  },
   viewButton: {
     backgroundColor: '#4e9af1',
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderRadius: 6,
-    marginTop: 8,
     alignSelf: 'flex-start',
   },
   viewButtonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16
+    fontSize: 14
+  },
+  categoryProductCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  categoryProductRow: {
+    flexDirection: 'row',
+  },
+  categoryProductImageContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f0f8ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  categoryProductImage: {
+    width: 60,
+    height: 60,
+  },
+  categoryProductInfo: {
+    flex: 1,
+  },
+  categoryProductName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  categoryVendorName: {
+    fontSize: 14,
+    color: '#4e9af1',
+    marginBottom: 6,
+  },
+  categoryProductPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  categoryProductActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  itemTotal: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4e9af1',
   },
 });
 
