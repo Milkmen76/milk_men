@@ -208,8 +208,8 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#fff',
-    padding: SIZES.PADDING_M,
-    paddingBottom: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: 16,
     ...getShadowStyles(2)
   },
   headerTitle: { 

@@ -18,10 +18,33 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
 
-// Image mapping for predefined product images
-const imageMap = {
-  'milk1.jpg': require('../../assets/milk-icon.png'),
-  'milk2.jpg': require('../../assets/milk-icon.png'),
+// Get product image from base64 or default
+const getProductImage = (product) => {
+  if (!product) {
+    console.log('Product object is undefined or null');
+    return require('../../assets/milk-icon.png');
+  }
+  
+  console.log(`Getting image for product: ${product.name || 'unknown'}`);
+  
+  if (product.image_base64 && product.image_base64.length > 100) {
+    console.log(`Using base64 image for product ${product.name}, data length: ${product.image_base64.length}`);
+    return { uri: `data:image/jpeg;base64,${product.image_base64}` };
+  }
+  
+  // Check if the product has an image name that maps to a predefined image
+  const imageMap = {
+    'milk1.jpg': require('../../assets/milk-icon.png'),
+    'milk2.jpg': require('../../assets/milk-icon.png'),
+  };
+  
+  if (product.image && imageMap[product.image]) {
+    console.log(`Using mapped image for ${product.name}: ${product.image}`);
+    return imageMap[product.image];
+  }
+  
+  console.log(`Using fallback image for ${product.name || 'unknown product'}`);
+  return require('../../assets/milk-icon.png');
 };
 
 const ProductListScreen = () => {
@@ -95,7 +118,7 @@ const ProductListScreen = () => {
   const renderProductItem = ({ item }) => (
     <View style={styles.productCard}>
       <Image 
-        source={imageMap[item.image] || require('../../assets/milk-icon.png')}
+        source={getProductImage(item)}
         style={styles.productImage}
         resizeMode="contain"
       />

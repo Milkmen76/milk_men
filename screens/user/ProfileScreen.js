@@ -593,7 +593,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingVertical: SIZES.PADDING_L,
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
