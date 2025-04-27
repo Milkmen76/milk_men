@@ -150,6 +150,35 @@ const ProductListScreen = () => {
     });
   };
 
+  // Add this function to get vendor avatar
+  const getVendorAvatar = () => {
+    if (!vendor) return require('../../assets/milk-icon.png');
+    
+    if (vendor.profile_info?.custom_avatar_base64) {
+      return { uri: `data:image/jpeg;base64,${vendor.profile_info.custom_avatar_base64}` };
+    }
+    
+    // Default avatars
+    const avatarImages = {
+      'milk-icon.png': require('../../assets/milk-icon.png'),
+      'icon.png': require('../../assets/icon.png'),
+      'splash-icon.png': require('../../assets/splash-icon.png'),
+      'adaptive-icon.png': require('../../assets/adaptive-icon.png'),
+      'favicon.png': require('../../assets/favicon.png'),
+    };
+    
+    return avatarImages[vendor.profile_info?.avatar] || require('../../assets/milk-icon.png');
+  };
+  
+  // Add this function to get business logo
+  const getBusinessLogo = () => {
+    if (!vendor || !vendor.profile_info?.logo_base64) {
+      return require('../../assets/milk-icon.png');
+    }
+    
+    return { uri: `data:image/jpeg;base64,${vendor.profile_info.logo_base64}` };
+  };
+
   const renderProductItem = ({ item }) => {
     const quantity = selectedProducts[item.product_id] || 0;
     const isInCart = quantity > 0;
@@ -214,105 +243,97 @@ const ProductListScreen = () => {
     
     return (
       <View style={styles.vendorHeader}>
-        <View style={styles.vendorImageContainer}>
-          {vendor.profile_info?.logo_base64 ? (
+        <View style={styles.vendorInfo}>
+          <View style={styles.vendorProfilePic}>
             <Image 
-              source={{ uri: `data:image/jpeg;base64,${vendor.profile_info.logo_base64}` }}
-              style={styles.vendorImage}
+              source={getVendorAvatar()}
+              style={styles.vendorAvatar}
               resizeMode="cover"
             />
-          ) : (
-            <Image 
-              source={require('../../assets/milk-icon.png')}
-              style={styles.vendorImage}
-              resizeMode="contain"
-            />
-          )}
-        </View>
-        <View style={styles.vendorDetails}>
-          <Text style={styles.vendorName}>
-            {vendor.profile_info?.business_name || 'Vendor'}
-          </Text>
-          <Text style={styles.vendorAddress}>
-            {vendor.profile_info?.address || 'No address provided'}
-          </Text>
+          </View>
           
-          <View style={styles.vendorBadges}>
-            <View style={styles.vendorBadge}>
-              <Text style={styles.vendorBadgeText}>Dairy</Text>
-            </View>
-            <View style={styles.vendorBadge}>
-              <Text style={styles.vendorBadgeText}>Verified</Text>
+          <View style={styles.vendorDetails}>
+            <Text style={styles.vendorName}>{vendor.profile_info?.business_name || vendor.name || 'Vendor'}</Text>
+            <Text style={styles.vendorAddress}>{vendor.profile_info?.address || 'No address provided'}</Text>
+            <View style={styles.ratingContainer}>
+              <Text style={styles.ratingText}>⭐ 4.5</Text>
+              <Text style={styles.reviewCount}>(24 reviews)</Text>
             </View>
           </View>
         </View>
+        
+        {vendor.profile_info?.logo_base64 && (
+          <View style={styles.businessLogoContainer}>
+            <Image 
+              source={getBusinessLogo()}
+              style={styles.businessLogo}
+              resizeMode="contain"
+            />
+          </View>
+        )}
       </View>
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading products...</Text>
-      </View>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-      <FlatList
-        data={products}
-        renderItem={renderProductItem}
-        keyExtractor={item => item.product_id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={renderVendorHeader}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No products available from this vendor</Text>
-          </View>
-        }
-      />
-      
-      <Animated.View 
-        style={[
-          styles.cartSummary,
-          {
-            transform: [
-              {
-                translateY: animatedValue.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [200, 0]
-                })
-              }
-            ]
-          }
-        ]}
-      >
-        <View style={styles.cartInfo}>
-          <View>
-            <Text style={styles.cartText}>
-              {getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'}
-            </Text>
-            <Text style={styles.cartPrice}>₹{getTotalPrice().toFixed(2)}</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.orderButton}
-            onPress={handlePlaceOrder}
-          >
-            <Text style={styles.orderButtonText}>Place Order</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading products...</Text>
         </View>
-      </Animated.View>
+      ) : (
+        <>
+          <FlatList
+            data={products}
+            renderItem={renderProductItem}
+            keyExtractor={item => item.product_id}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.emptyStateContainer}>
+                <Text style={styles.emptyStateText}>No products available</Text>
+              </View>
+            }
+            ListHeaderComponent={renderVendorHeader()}
+            showsVerticalScrollIndicator={false}
+          />
+          
+          {/* Cart button */}
+          <Animated.View 
+            style={[
+              styles.cartButtonContainer,
+              {
+                transform: [
+                  {
+                    translateY: animatedValue.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [100, 0]
+                    })
+                  }
+                ]
+              }
+            ]}
+          >
+            <TouchableOpacity 
+              style={styles.cartButton}
+              onPress={handlePlaceOrder}
+              activeOpacity={0.8}
+            >
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{getTotalItems()}</Text>
+              </View>
+              <Text style={styles.cartButtonText}>Place Order</Text>
+              <Text style={styles.cartTotal}>₹{getTotalPrice().toFixed(2)}</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { 
+  safeArea: { 
     flex: 1, 
     backgroundColor: '#f9f9f9',
   },
@@ -345,34 +366,36 @@ const styles = StyleSheet.create({
     width: 40,
   },
   vendorHeader: {
-    flexDirection: 'row',
     backgroundColor: '#fff',
     padding: 16,
-    marginBottom: 16,
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    marginBottom: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  vendorImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
-    overflow: 'hidden',
+  vendorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  vendorProfilePic: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#f0f8ff',
-    marginRight: 16,
+    marginRight: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  vendorImage: {
+  vendorAvatar: {
     width: '100%',
     height: '100%',
   },
@@ -388,22 +411,32 @@ const styles = StyleSheet.create({
   vendorAddress: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  vendorBadges: {
+  ratingContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
-  vendorBadge: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
+  ratingText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#ff9800',
+    marginRight: 4,
   },
-  vendorBadgeText: {
+  reviewCount: {
     fontSize: 12,
-    color: '#2196f3',
-    fontWeight: '500',
+    color: '#999',
+  },
+  businessLogoContainer: {
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  businessLogo: {
+    width: 100,
+    height: 60,
   },
   listContent: {
     paddingBottom: 100,
@@ -533,61 +566,80 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  emptyContainer: {
+  emptyStateContainer: {
     padding: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyText: {
+  emptyStateText: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
   },
-  cartSummary: {
+  cartButtonContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
+        shadowOffset: { width: 0, height: -3 },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowRadius: 6,
       },
       android: {
         elevation: 8,
       },
     }),
   },
-  cartInfo: {
+  cartButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-  },
-  cartText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  cartPrice: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  orderButton: {
+    justifyContent: 'space-between',
     backgroundColor: '#4e9af1',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 16,
     borderRadius: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  orderButtonText: {
-    color: '#fff',
+  cartBadge: {
+    backgroundColor: '#fff',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  cartBadgeText: {
+    color: '#4e9af1',
+    fontSize: 12,
     fontWeight: 'bold',
+  },
+  cartButtonText: {
+    color: '#fff',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cartTotal: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

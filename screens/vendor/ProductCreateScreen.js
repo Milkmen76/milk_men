@@ -70,70 +70,50 @@ const ProductCreateScreen = () => {
       setImageLoading(true);
       
       // Request permission
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
-      if (!permissionResult.granted) {
+      if (!status || status !== 'granted') {
         Alert.alert('Permission Required', 'You need to grant permission to access your photos');
+        setImageLoading(false);
         return;
       }
       
-      try {
-        // Use a completely different approach without any configuration options at all
-        console.log('Launching picker without config options');
-        const pickerResult = await ImagePicker.launchImageLibraryAsync();
+      // Fix ImagePicker configuration - remove any problematic parameters
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.5,
+        base64: true
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedAsset = result.assets[0];
+        setImageUri(selectedAsset.uri);
         
-        if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
-          const asset = pickerResult.assets[0];
-          console.log('Image selected, URI:', asset.uri);
-          
-          // Now manually read the image file to get base64
-          console.log('Reading file from URI:', asset.uri);
-          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+        try {
+          // Read the image file to get base64 data
+          const base64 = await FileSystem.readAsStringAsync(selectedAsset.uri, {
             encoding: FileSystem.EncodingType.Base64
           });
           
-          console.log('Read base64 data, length:', base64.length);
-          
-          // Set the image data in state
-          setImageUri(asset.uri);
           setLocalImage({
-            uri: asset.uri,
+            uri: selectedAsset.uri,
             type: 'image/jpeg',
             name: 'product_image.jpg',
             base64: base64
           });
           
-          console.log('Image data set successfully');
-        } else {
-          console.log('Image selection canceled');
+          console.log('Successfully set image data');
+        } catch (readError) {
+          console.error('Error reading base64 from URI:', readError);
+          Alert.alert('Warning', 'Could not read image data properly. Please try again.');
         }
-      } catch (innerError) {
-        console.error('Inner image picker error:', innerError);
-        
-        // Try a third attempt with direct construction of options object
-        try {
-          console.log('Trying with direct object construction');
-          // Pass empty object to avoid any issues
-          const lastResult = await ImagePicker.launchImageLibraryAsync({});
-          
-          if (!lastResult.canceled && lastResult.assets && lastResult.assets.length > 0) {
-            const asset = lastResult.assets[0];
-            console.log('Final attempt succeeded, URI:', asset.uri);
-            
-            // Set the image URI only - we'll handle base64 later
-            setImageUri(asset.uri);
-            
-            // We'll get base64 during the save
-            Alert.alert('Success', 'Image selected. Base64 data will be generated when saving.');
-          }
-        } catch (finalError) {
-          console.error('Final attempt failed:', finalError);
-          Alert.alert('Error', 'All image selection attempts failed. Please try another approach.');
-        }
+      } else {
+        console.log('Image selection canceled or no image selected');
       }
     } catch (error) {
-      console.error('Outer image picker error:', error);
-      Alert.alert('Error', 'Failed to select image. Please try again.');
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to select image: ' + error.message);
     } finally {
       setImageLoading(false);
     }
