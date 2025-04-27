@@ -234,36 +234,6 @@ const VendorApprovalScreen = () => {
               <Text style={styles.signOutText}>Sign Out</Text>
             </TouchableOpacity>
           </View>
-          
-          <View style={styles.headerButtons}>
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => navigation.navigate('UserListScreen')}
-            >
-              <Text style={styles.navButtonText}>Users</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => navigation.navigate('ProductListScreen')}
-            >
-              <Text style={styles.navButtonText}>Products</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => navigation.navigate('TransactionListScreen')}
-            >
-              <Text style={styles.navButtonText}>Transactions</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => navigation.navigate('ProfileScreen')}
-            >
-              <Text style={styles.navButtonText}>Dashboard</Text>
-            </TouchableOpacity>
-          </View>
         </View>
         
         <View style={styles.searchContainer}>

@@ -790,8 +790,8 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#fff',
-    paddingTop: 16,
-    paddingHorizontal: 16,
+    padding: 16,
+    marginBottom: 8,
     ...Platform.select({
       ios: {
         shadowColor: '#000',

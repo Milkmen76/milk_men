@@ -508,21 +508,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   timeline: {
-    marginLeft: 8,
+    marginLeft: 4,
   },
   timelineItem: {
     flexDirection: 'row',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   timelineLeftColumn: {
-    width: 40,
+    width: 24,
     alignItems: 'center',
   },
   timelineDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
     backgroundColor: '#fff',
     zIndex: 2,
   },
@@ -537,10 +537,10 @@ const styles = StyleSheet.create({
   currentDot: {
     borderColor: '#4e9af1',
     backgroundColor: '#4e9af1',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
   },
   cancelledDot: {
     borderColor: '#d9534f',
@@ -548,11 +548,11 @@ const styles = StyleSheet.create({
   },
   timelineLine: {
     position: 'absolute',
-    width: 3,
-    top: 20,
-    bottom: -24,
+    width: 2,
+    top: 14,
+    bottom: -16,
     backgroundColor: '#ccc',
-    left: 18.5,
+    left: 11,
     zIndex: 1,
   },
   completedLine: {
@@ -563,13 +563,13 @@ const styles = StyleSheet.create({
   },
   timelineContent: {
     flex: 1,
-    paddingLeft: 16,
+    paddingLeft: 10,
   },
   timelineStatus: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   currentStatus: {
     color: '#4e9af1',
@@ -578,12 +578,12 @@ const styles = StyleSheet.create({
     color: '#d9534f',
   },
   timelineDate: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   timelineDescription: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
   },
   vendorCard: {

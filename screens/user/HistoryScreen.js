@@ -7,11 +7,17 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   ScrollView,
-  SafeAreaView
+  SafeAreaView,
+  TextInput,
+  Platform,
+  StatusBar
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as localData from '../../services/localData';
 import { useAuth } from '../../contexts/AuthContext';
+
+// Import responsive utility functions
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 const HistoryScreen = () => {
   const navigation = useNavigation();
@@ -26,6 +32,30 @@ const HistoryScreen = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
   const [vendorMap, setVendorMap] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Get status color based on status string
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'delivered':
+      case 'completed':
+      case 'active':
+        return '#4CAF50'; // green
+      case 'out for delivery':
+        return '#2196F3'; // blue
+      case 'delayed':
+      case 'paused':
+        return '#FF9800'; // orange
+      case 'cancelled':
+      case 'canceled':
+        return '#F44336'; // red
+      case 'pending':
+      case 'processing':
+        return '#4e9af1'; // primary blue
+      default:
+        return '#9E9E9E'; // gray
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -61,12 +91,50 @@ const HistoryScreen = () => {
     }
   };
 
-  // Get filtered orders based on status filter
+  // Get filtered orders based on status filter and search query
   const getFilteredOrders = () => {
-    if (statusFilter === 'all') {
-      return orders;
+    let filtered = orders;
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(order => order.status === statusFilter);
     }
-    return orders.filter(order => order.status === statusFilter);
+    
+    // Apply search filter if there is a query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(order => {
+        const vendorInfo = vendorMap[order.vendor_id] || {};
+        const vendorName = vendorInfo?.profile_info?.business_name?.toLowerCase() || '';
+        const orderId = order.order_id?.toLowerCase() || '';
+        return vendorName.includes(query) || orderId.includes(query);
+      });
+    }
+    
+    return filtered;
+  };
+
+  // Get filtered subscriptions based on status filter and search query
+  const getFilteredSubscriptions = () => {
+    let filtered = subscriptions;
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(sub => sub.status === statusFilter);
+    }
+    
+    // Apply search filter if there is a query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(sub => {
+        const vendorInfo = vendorMap[sub.vendor_id] || {};
+        const vendorName = vendorInfo?.profile_info?.business_name?.toLowerCase() || '';
+        const subId = sub.subscription_id?.toLowerCase() || '';
+        return vendorName.includes(query) || subId.includes(query);
+      });
+    }
+    
+    return filtered;
   };
 
   // Format date string to readable format
@@ -79,37 +147,18 @@ const HistoryScreen = () => {
     });
   };
 
-  // Get status badge color
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'delivered':
-      case 'completed':
-        return '#4CAF50'; // green
-      case 'out for delivery':
-        return '#2196F3'; // blue
-      case 'delayed':
-        return '#FF9800'; // orange
-      case 'cancelled':
-      case 'canceled':
-        return '#F44336'; // red
-      case 'pending':
-      default:
-        return '#9E9E9E'; // gray
-    }
-  };
-
   // Render an order item
   const renderOrderItem = ({ item }) => {
     const vendorInfo = vendorMap[item.vendor_id] || {};
     const vendorName = vendorInfo?.profile_info?.business_name || 'Vendor';
+    const statusColor = getStatusColor(item.status);
 
     return (
       <TouchableOpacity 
         style={styles.historyCard}
-        onPress={() => {
-          alert(`Order ID: ${item.order_id}\nStatus: ${item.status}\nVendor: ${vendorName}`);
-        }}
+        onPress={() => navigation.navigate('OrderDetailsScreen', { orderId: item.order_id })}
       >
+        <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
         <View style={styles.cardHeader}>
           <View style={styles.vendorContainer}>
             <Text style={styles.cardTitle}>
@@ -119,14 +168,14 @@ const HistoryScreen = () => {
               {item.created_at ? formatDate(item.created_at) : formatDate(item.date)}
             </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{item.status || 'Pending'}</Text>
-          </View>
         </View>
         
-        <View style={styles.divider} />
-        
         <View style={styles.cardContent}>
+          <View style={styles.orderInfo}>
+            <Text style={styles.orderIdText}>Order #{item.order_id}</Text>
+            <Text style={[styles.statusText, { color: statusColor }]}>{item.status || 'Pending'}</Text>
+          </View>
+          
           {item.products && (
             <Text style={styles.productsText}>
               {Array.isArray(item.products) ? `${item.products.length} items` : 'Items not available'}
@@ -137,6 +186,17 @@ const HistoryScreen = () => {
             <Text style={styles.cardTotal}>₹{parseFloat(item.total).toFixed(2)}</Text>
           )}
         </View>
+        
+        <View style={styles.divider} />
+        
+        <View style={styles.cardFooter}>
+          <TouchableOpacity 
+            style={styles.detailsButton}
+            onPress={() => navigation.navigate('OrderDetailsScreen', { orderId: item.order_id })}
+          >
+            <Text style={styles.detailsButtonText}>View Details</Text>
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -145,6 +205,7 @@ const HistoryScreen = () => {
   const renderSubscriptionItem = ({ item }) => {
     const vendorInfo = vendorMap[item.vendor_id] || {};
     const vendorName = vendorInfo?.profile_info?.business_name || 'Vendor';
+    const statusColor = getStatusColor(item.status);
 
     // Determine if subscription is active
     const isActive = () => {
@@ -161,10 +222,9 @@ const HistoryScreen = () => {
     return (
       <TouchableOpacity 
         style={styles.historyCard}
-        onPress={() => {
-          alert(`Subscription ID: ${item.subscription_id}\nStatus: ${statusText}\nVendor: ${vendorName}`);
-        }}
+        onPress={() => navigation.navigate('SubscriptionDetailsScreen', { subscriptionId: item.subscription_id })}
       >
+        <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
         <View style={styles.cardHeader}>
           <View style={styles.vendorContainer}>
             <Text style={styles.cardTitle}>
@@ -174,15 +234,14 @@ const HistoryScreen = () => {
               {item.type?.charAt(0).toUpperCase() + item.type?.slice(1) || 'Regular'} Delivery
             </Text>
           </View>
-          <View style={[
-            styles.statusBadge, 
-            { backgroundColor: getStatusColor(statusText) }
-          ]}>
-            <Text style={styles.statusText}>{statusText}</Text>
-          </View>
         </View>
         
-        <View style={styles.divider} />
+        <View style={styles.cardContent}>
+          <View style={styles.orderInfo}>
+            <Text style={styles.orderIdText}>Subscription #{item.subscription_id?.slice(-5)}</Text>
+            <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
+          </View>
+        </View>
         
         <View style={styles.dateRange}>
           <View style={styles.dateItem}>
@@ -193,6 +252,26 @@ const HistoryScreen = () => {
             <Text style={styles.dateLabel}>Ends</Text>
             <Text style={styles.dateValue}>{formatDate(item.end_date)}</Text>
           </View>
+        </View>
+        
+        <View style={styles.divider} />
+        
+        <View style={styles.cardFooter}>
+          <TouchableOpacity 
+            style={styles.detailsButton}
+            onPress={() => navigation.navigate('SubscriptionDetailsScreen', { subscriptionId: item.subscription_id })}
+          >
+            <Text style={styles.detailsButtonText}>View Details</Text>
+          </TouchableOpacity>
+          
+          {statusText === 'Active' && (
+            <TouchableOpacity 
+              style={styles.manageButton}
+              onPress={() => navigation.navigate('ManageSubscription', { subscriptionId: item.subscription_id })}
+            >
+              <Text style={styles.manageButtonText}>Manage</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -217,138 +296,227 @@ const HistoryScreen = () => {
         ];
 
     return (
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.filtersContainer}
-        contentContainerStyle={styles.filtersContent}
-      >
-        {statusOptions.map(option => (
-          <TouchableOpacity
-            key={option.value}
-            style={[
-              styles.filterButton,
-              statusFilter === option.value && styles.activeFilterButton
-            ]}
-            onPress={() => setStatusFilter(option.value)}
-          >
-            <Text
+      <View style={styles.filtersContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersContent}
+        >
+          {statusOptions.map(option => (
+            <TouchableOpacity
+              key={option.value}
               style={[
-                styles.filterButtonText,
-                statusFilter === option.value && styles.activeFilterText
+                styles.filterButton,
+                statusFilter === option.value && styles.activeFilterButton
               ]}
+              onPress={() => setStatusFilter(option.value)}
             >
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  statusFilter === option.value && styles.activeFilterText
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
     );
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading your history...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading your history...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.tabs}>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'orders' && styles.activeTabButton]}
-          onPress={() => {
-            setActiveTab('orders');
-            setStatusFilter('all');
-          }}
-        >
-          <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
-            Orders
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>
+            {activeTab === 'orders' ? 'My Orders' : 'My Subscriptions'}
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'subscriptions' && styles.activeTabButton]}
-          onPress={() => {
-            setActiveTab('subscriptions');
-            setStatusFilter('all');
-          }}
-        >
-          <Text style={[styles.tabText, activeTab === 'subscriptions' && styles.activeTabText]}>
-            Subscriptions
-          </Text>
-        </TouchableOpacity>
+          
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder={`Search ${activeTab}...`}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity 
+                style={styles.clearSearch} 
+                onPress={() => setSearchQuery('')}
+              >
+                <Text style={styles.clearSearchText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <View style={styles.tabs}>
+            <TouchableOpacity 
+              style={[styles.tabButton, activeTab === 'orders' && styles.activeTabButton]}
+              onPress={() => {
+                setActiveTab('orders');
+                setStatusFilter('all');
+              }}
+            >
+              <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
+                Orders
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.tabButton, activeTab === 'subscriptions' && styles.activeTabButton]}
+              onPress={() => {
+                setActiveTab('subscriptions');
+                setStatusFilter('all');
+              }}
+            >
+              <Text style={[styles.tabText, activeTab === 'subscriptions' && styles.activeTabText]}>
+                Subscriptions
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {renderStatusFilters()}
+        
+        {activeTab === 'orders' && (
+          <View style={styles.contentContainer}>
+            {orders.length > 0 ? (
+              <FlatList
+                data={getFilteredOrders()}
+                renderItem={renderOrderItem}
+                keyExtractor={item => item.order_id}
+                contentContainerStyle={styles.listContent}
+                onRefresh={loadData}
+                refreshing={refreshing}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>
+                      {searchQuery 
+                        ? 'No matching orders found' 
+                        : `No ${statusFilter !== 'all' ? statusFilter : ''} orders found`}
+                    </Text>
+                    {(statusFilter !== 'all' || searchQuery) && (
+                      <TouchableOpacity 
+                        onPress={() => {
+                          setStatusFilter('all');
+                          setSearchQuery('');
+                        }}
+                      >
+                        <Text style={styles.showAllText}>Show all orders</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                }
+              />
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>You haven't placed any orders yet</Text>
+              </View>
+            )}
+          </View>
+        )}
+        
+        {activeTab === 'subscriptions' && (
+          <View style={styles.contentContainer}>
+            {subscriptions.length > 0 ? (
+              <FlatList
+                data={getFilteredSubscriptions()}
+                renderItem={renderSubscriptionItem}
+                keyExtractor={item => item.subscription_id}
+                contentContainerStyle={styles.listContent}
+                onRefresh={loadData}
+                refreshing={refreshing}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>
+                      {searchQuery 
+                        ? 'No matching subscriptions found' 
+                        : `No ${statusFilter !== 'all' ? statusFilter : ''} subscriptions found`}
+                    </Text>
+                    {(statusFilter !== 'all' || searchQuery) && (
+                      <TouchableOpacity 
+                        onPress={() => {
+                          setStatusFilter('all');
+                          setSearchQuery('');
+                        }}
+                      >
+                        <Text style={styles.showAllText}>Show all subscriptions</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                }
+              />
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>You don't have any subscriptions yet</Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
-      
-      {renderStatusFilters()}
-      
-      {activeTab === 'orders' && (
-        <View style={styles.contentContainer}>
-          {orders.length > 0 ? (
-            <FlatList
-              data={getFilteredOrders()}
-              renderItem={renderOrderItem}
-              keyExtractor={item => item.order_id}
-              contentContainerStyle={styles.listContent}
-              onRefresh={loadData}
-              refreshing={refreshing}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No {statusFilter !== 'all' ? statusFilter : ''} orders found</Text>
-                  {statusFilter !== 'all' && (
-                    <TouchableOpacity onPress={() => setStatusFilter('all')}>
-                      <Text style={styles.showAllText}>Show all orders</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              }
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>You haven't placed any orders yet</Text>
-            </View>
-          )}
-        </View>
-      )}
-      
-      {activeTab === 'subscriptions' && (
-        <View style={styles.contentContainer}>
-          {subscriptions.length > 0 ? (
-            <FlatList
-              data={subscriptions.filter(sub => statusFilter === 'all' || sub.status === statusFilter)}
-              renderItem={renderSubscriptionItem}
-              keyExtractor={item => item.subscription_id}
-              contentContainerStyle={styles.listContent}
-              onRefresh={loadData}
-              refreshing={refreshing}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No {statusFilter !== 'all' ? statusFilter : ''} subscriptions found</Text>
-                  {statusFilter !== 'all' && (
-                    <TouchableOpacity onPress={() => setStatusFilter('all')}>
-                      <Text style={styles.showAllText}>Show all subscriptions</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              }
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>You don't have any subscriptions yet</Text>
-            </View>
-          )}
-        </View>
-      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f7fa',
+  },
+  header: {
+    backgroundColor: '#fff',
+    padding: SIZES.PADDING_M,
+    paddingBottom: SIZES.PADDING_S,
+    ...getShadowStyles(2)
+  },
+  headerTitle: {
+    fontSize: SIZES.TITLE,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: SIZES.PADDING_S,
+  },
+  searchContainer: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: SIZES.RADIUS_S,
+    marginBottom: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_S,
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  searchInput: {
+    height: verticalScale(40),
+    flex: 1,
+    fontSize: SIZES.BODY,
+    paddingHorizontal: SIZES.PADDING_S,
+  },
+  clearSearch: {
+    padding: SIZES.PADDING_XS,
+  },
+  clearSearchText: {
+    color: '#999',
+    fontSize: SIZES.BODY,
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,
@@ -357,32 +525,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f7fa'
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
+    marginTop: SIZES.PADDING_S,
+    fontSize: SIZES.BODY,
     color: '#666'
   },
   tabs: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    borderRadius: SIZES.RADIUS_S,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: SIZES.PADDING_S,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 3,
+    borderBottomWidth: 2,
     borderBottomColor: 'transparent'
   },
   activeTabButton: {
     borderBottomColor: '#4e9af1'
   },
   tabText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '600',
     color: '#666'
   },
@@ -391,31 +555,35 @@ const styles = StyleSheet.create({
     fontWeight: 'bold'
   },
   filtersContainer: {
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
+    backgroundColor: '#f5f7fa',
+    paddingVertical: SIZES.PADDING_M,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   filtersContent: {
-    paddingHorizontal: 12
+    paddingHorizontal: SIZES.PADDING_M,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   filterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginHorizontal: 4,
-    backgroundColor: '#f0f0f0'
+    paddingVertical: SIZES.PADDING_M,
+    paddingHorizontal: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_XL,
+    marginRight: SIZES.PADDING_S,
+    backgroundColor: '#f0f0f0',
+    minWidth: scale(110),
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: verticalScale(50),
   },
   activeFilterButton: {
     backgroundColor: '#4e9af1'
   },
   filterButtonText: {
-    fontSize: 14,
+    fontSize: SIZES.BODY,
     color: '#666',
-    fontWeight: '500'
+    fontWeight: '500',
+    textAlign: 'center'
   },
   activeFilterText: {
     color: '#fff',
@@ -425,111 +593,155 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    padding: 12,
-    paddingBottom: 32
+    padding: SIZES.PADDING_M,
+    paddingBottom: SIZES.PADDING_XL
   },
   historyCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
+    ...getShadowStyles(2),
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  statusIndicator: {
+    width: 4,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderTopLeftRadius: SIZES.RADIUS_M,
+    borderBottomLeftRadius: SIZES.RADIUS_M,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12
+    marginBottom: SIZES.PADDING_S,
+    paddingLeft: SIZES.PADDING_S,
   },
   vendorContainer: {
     flex: 1,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 2
+    marginBottom: SIZES.PADDING_XS
   },
   cardDate: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#888',
   },
   subscriptionType: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
-    marginTop: 2
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginLeft: 8
+    marginTop: SIZES.PADDING_XS
   },
   statusText: {
-    color: '#fff',
-    fontSize: 12,
+    fontSize: SIZES.SMALL,
     fontWeight: 'bold',
     textTransform: 'uppercase'
+  },
+  orderInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.PADDING_XS
+  },
+  orderIdText: {
+    fontSize: SIZES.BODY,
+    fontWeight: '500',
+    color: '#333'
   },
   divider: {
     height: 1,
     backgroundColor: '#eee',
-    marginVertical: 12
+    marginVertical: SIZES.PADDING_S
   },
   cardContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: SIZES.PADDING_S,
+    paddingLeft: SIZES.PADDING_S,
   },
   productsText: {
-    fontSize: 15,
+    fontSize: SIZES.CAPTION,
     color: '#666',
+    marginVertical: SIZES.PADDING_XS
   },
   cardTotal: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: '600',
     color: '#4e9af1',
+    marginTop: SIZES.PADDING_XS
   },
   dateRange: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: SIZES.PADDING_S,
+    paddingLeft: SIZES.PADDING_S,
   },
   dateItem: {
     flex: 1,
     backgroundColor: '#f8f9fa',
-    padding: 10,
-    borderRadius: 8,
-    marginHorizontal: 4
+    padding: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    marginRight: SIZES.PADDING_XS
   },
   dateLabel: {
-    fontSize: 12,
+    fontSize: SIZES.SMALL,
     color: '#888',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   dateValue: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#333',
     fontWeight: '600'
   },
+  cardFooter: {
+    flexDirection: 'row',
+  },
+  detailsButton: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    paddingVertical: SIZES.PADDING_XS,
+    alignItems: 'center',
+    borderRadius: SIZES.RADIUS_S,
+    marginRight: SIZES.PADDING_XS
+  },
+  detailsButtonText: {
+    color: '#666',
+    fontWeight: '500',
+    fontSize: SIZES.CAPTION
+  },
+  manageButton: {
+    flex: 1,
+    backgroundColor: '#4e9af1',
+    paddingVertical: SIZES.PADDING_XS,
+    alignItems: 'center',
+    borderRadius: SIZES.RADIUS_S,
+    marginLeft: SIZES.PADDING_XS
+  },
+  manageButtonText: {
+    color: '#fff',
+    fontWeight: '500',
+    fontSize: SIZES.CAPTION
+  },
   emptyContainer: {
     flex: 1,
-    padding: 40,
+    padding: SIZES.PADDING_XL,
     justifyContent: 'center',
     alignItems: 'center'
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 12
+    marginBottom: SIZES.PADDING_S
   },
   showAllText: {
     color: '#4e9af1',
-    fontSize: 15,
+    fontSize: SIZES.BODY,
     fontWeight: '500'
   }
 });

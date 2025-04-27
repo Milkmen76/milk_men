@@ -1,474 +1,430 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
+  FlatList,
   ActivityIndicator,
+  TextInput,
   SafeAreaView,
   Platform,
-  TextInput,
+  StatusBar,
   Image,
   Animated,
-  RefreshControl,
-  StatusBar
+  Keyboard
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../contexts/AuthContext';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as localData from '../../services/localData';
-
-// Import responsive utility functions
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 const MyOrdersScreen = () => {
   const navigation = useNavigation();
-  const { user } = useAuth();
-  
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
-  const [activeTab, setActiveTab] = useState('orders');
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredOrders, setFilteredOrders] = useState([]);
-  const [filteredSubscriptions, setFilteredSubscriptions] = useState([]);
-  
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
-  
+  const [userId, setUserId] = useState(null);
+  const [showEmptyAnimation] = useState(new Animated.Value(0));
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Get user ID from AsyncStorage on component mount
   useEffect(() => {
-    loadUserData();
-    
-    // Start animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true
-      })
-    ]).start();
+    const getUserId = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          setUserId(parsedUser.id);
+        }
+      } catch (error) {
+        console.error('Error getting user data:', error);
+      }
+    };
+
+    getUserId();
   }, []);
-  
+
+  // Load orders and subscriptions when userId changes
   useEffect(() => {
-    applyFilters();
-  }, [searchQuery, orders, subscriptions]);
-  
-  const loadUserData = async () => {
-    if (!user) return;
+    if (userId) {
+      loadData();
+    }
+  }, [userId]);
+
+  const loadData = async () => {
+    if (!userId) return;
     
     try {
       setLoading(true);
       
-      // Load user's orders
-      const userOrders = await localData.getOrdersByUser(user.id);
-      // Sort orders by date (newest first)
-      const sortedOrders = userOrders.sort((a, b) => 
-        new Date(b.created_at || b.date) - new Date(a.created_at || a.date)
-      );
-      setOrders(sortedOrders);
+      // Load orders
+      const allOrders = await localData.getOrders();
+      const userOrders = allOrders.filter(order => order.user_id === userId);
+      setOrders(userOrders);
       
-      // Load user's subscriptions
-      const userSubscriptions = await localData.getSubscriptionsByUser(user.id);
+      // Load subscriptions
+      const allSubscriptions = await localData.getSubscriptions();
+      const userSubscriptions = allSubscriptions.filter(
+        subscription => subscription.user_id === userId
+      );
       setSubscriptions(userSubscriptions);
       
+      // Animate empty state if no data
+      if (userOrders.length === 0 && userSubscriptions.length === 0) {
+        Animated.timing(showEmptyAnimation, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }).start();
+      }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      setIsRefreshing(false);
     }
   };
-  
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadUserData();
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadData();
   };
-  
-  const applyFilters = () => {
-    // Filter orders
-    let filteredOrdersList = [...orders];
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filteredOrdersList = filteredOrdersList.filter(order => 
-        order.order_id.toLowerCase().includes(query) ||
-        order.status.toLowerCase().includes(query)
-      );
-    }
-    setFilteredOrders(filteredOrdersList);
+
+  const filterItems = (data) => {
+    if (!searchQuery.trim()) return data;
     
-    // Filter subscriptions
-    let filteredSubscriptionsList = [...subscriptions];
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filteredSubscriptionsList = filteredSubscriptionsList.filter(sub => 
-        (sub.subscription_id && sub.subscription_id.toLowerCase().includes(query)) ||
-        (sub.status && sub.status.toLowerCase().includes(query)) ||
-        (sub.type && sub.type.toLowerCase().includes(query))
-      );
-    }
-    setFilteredSubscriptions(filteredSubscriptionsList);
+    const lowerCaseQuery = searchQuery.toLowerCase().trim();
+    
+    return data.filter(item => {
+      // Check order_id
+      if (item.order_id && item.order_id.toLowerCase().includes(lowerCaseQuery)) {
+        return true;
+      }
+      
+      // Check subscription_id
+      if (item.subscription_id && item.subscription_id.toLowerCase().includes(lowerCaseQuery)) {
+        return true;
+      }
+      
+      // Check status
+      if (item.status && item.status.toLowerCase().includes(lowerCaseQuery)) {
+        return true;
+      }
+      
+      // Check date
+      if (item.created_at && item.created_at.toLowerCase().includes(lowerCaseQuery)) {
+        return true;
+      }
+      
+      // Check vendor name if available
+      if (item.vendor_name && item.vendor_name.toLowerCase().includes(lowerCaseQuery)) {
+        return true;
+      }
+      
+      return false;
+    });
   };
-  
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'delivered':
-      case 'completed':
-      case 'active':
-        return '#5cb85c'; // green
-      case 'processing':
-        return '#5bc0de'; // blue
-      case 'out for delivery':
-        return '#4e9af1'; // primary blue
-      case 'pending':
-      case 'scheduled':
-        return '#f0ad4e'; // orange
-      case 'delayed':
-      case 'paused':
-        return '#fcbe03'; // yellow
-      case 'cancelled':
-      case 'skipped':
-        return '#d9534f'; // red
-      default:
-        return '#777'; // gray
-    }
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    Keyboard.dismiss();
   };
-  
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
-  
-  const getOrderProgress = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return 0.25;
-      case 'processing':
-        return 0.5;
-      case 'out for delivery':
-        return 0.75;
+
+  const getStatusColor = (status) => {
+    if (!status) return '#9E9E9E';
+    
+    switch (status.toLowerCase()) {
       case 'delivered':
       case 'completed':
-        return 1;
+        return '#4CAF50';
+      case 'out for delivery':
+        return '#2196F3';
+      case 'processing':
+        return '#FF9800';
+      case 'pending':
+        return '#FFC107';
+      case 'cancelled':
+      case 'failed':
+        return '#F44336';
       default:
-        return 0;
+        return '#9E9E9E';
     }
   };
-  
-  const renderOrderItem = ({ item, index }) => {
-    const progress = getOrderProgress(item.status);
+
+  const getSubscriptionStatusColor = (status) => {
+    if (!status) return '#9E9E9E';
     
-    // Individual item animations
-    const itemFadeAnim = useRef(new Animated.Value(0)).current;
-    const itemSlideAnim = useRef(new Animated.Value(20)).current;
+    switch (status.toLowerCase()) {
+      case 'active':
+        return '#4CAF50';
+      case 'paused':
+        return '#FF9800';
+      case 'cancelled':
+        return '#F44336';
+      default:
+        return '#9E9E9E';
+    }
+  };
+
+  const getFrequencyText = (frequency) => {
+    if (!frequency) return 'N/A';
     
-    useEffect(() => {
-      const delay = index * 80; // Stagger the animations
-      
-      Animated.parallel([
-        Animated.timing(itemFadeAnim, {
-          toValue: 1,
-          duration: 400,
-          delay,
-          useNativeDriver: true
-        }),
-        Animated.timing(itemSlideAnim, {
-          toValue: 0,
-          duration: 400,
-          delay,
-          useNativeDriver: true
-        })
-      ]).start();
-    }, []);
+    const frequencyParts = frequency.split(' ');
+    return frequencyParts.join(' ');
+  };
+
+  const renderOrderItem = ({ item }) => {
+    const statusColor = getStatusColor(item.status);
     
     return (
-      <Animated.View
-        style={[
-          styles.orderItemContainer,
-          {
-            opacity: itemFadeAnim,
-            transform: [{ translateY: itemSlideAnim }]
-          }
-        ]}
+      <TouchableOpacity
+        style={styles.itemCard}
+        onPress={() => navigation.navigate('OrderDetailScreen', { orderId: item.order_id })}
       >
-        <TouchableOpacity
-          style={styles.orderItem}
-          onPress={() => navigation.navigate('OrderDetails', { orderId: item.order_id })}
-          activeOpacity={0.7}
-        >
-          <View style={styles.orderHeader}>
-            <Text style={styles.orderIdText}>Order #{item.order_id}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-              <Text style={styles.statusText}>{item.status?.toUpperCase()}</Text>
-            </View>
+        <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
+        <View style={styles.cardHeader}>
+          <View style={styles.orderInfo}>
+            <Text style={styles.orderId}>Order #{item.order_id}</Text>
+            <Text style={styles.date}>{formatDate(item.created_at)}</Text>
           </View>
-          
-          <View style={styles.orderMeta}>
-            <Text style={styles.dateText}>Ordered on {formatDate(item.created_at || item.date)}</Text>
-            <Text style={styles.amountText}>₹{parseFloat(item.total || 0).toFixed(2)}</Text>
+          <View style={styles.statusContainer}>
+            <Text style={[styles.statusText, { color: statusColor }]}>{item.status}</Text>
           </View>
+        </View>
+        
+        <View style={styles.cardContent}>
+          <Text style={styles.cardContentText}>
+            Total Amount: ₹{parseFloat(item.total || 0).toFixed(2)}
+          </Text>
           
-          <View style={styles.progressContainer}>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-            </View>
-            
-            <View style={styles.progressLabels}>
-              <Text style={[styles.progressLabel, progress >= 0.25 ? styles.activeLabel : {}]}>
-                Ordered
-              </Text>
-              <Text style={[styles.progressLabel, progress >= 0.5 ? styles.activeLabel : {}]}>
-                Processing
-              </Text>
-              <Text style={[styles.progressLabel, progress >= 0.75 ? styles.activeLabel : {}]}>
-                Shipping
-              </Text>
-              <Text style={[styles.progressLabel, progress >= 1 ? styles.activeLabel : {}]}>
-                Delivered
-              </Text>
-            </View>
-          </View>
-          
-          <View style={styles.orderFooter}>
+          {Array.isArray(item.products) && (
             <Text style={styles.itemsText}>
-              {Array.isArray(item.products) ? item.products.length : 0} items
+              {item.products.length} {item.products.length === 1 ? 'item' : 'items'}
             </Text>
-            
-            <View style={styles.footerActions}>
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>View Details</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
+          )}
+        </View>
+        
+        <View style={styles.cardFooter}>
+          <TouchableOpacity 
+            style={styles.viewDetailsButton}
+            onPress={() => navigation.navigate('OrderDetailScreen', { orderId: item.order_id })}
+          >
+            <Text style={styles.viewDetailsText}>View Details</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
     );
   };
-  
-  const renderSubscriptionItem = ({ item, index }) => {
-    // Individual item animations
-    const itemFadeAnim = useRef(new Animated.Value(0)).current;
-    const itemSlideAnim = useRef(new Animated.Value(20)).current;
-    
-    useEffect(() => {
-      const delay = index * 80; // Stagger the animations
-      
-      Animated.parallel([
-        Animated.timing(itemFadeAnim, {
-          toValue: 1,
-          duration: 400,
-          delay,
-          useNativeDriver: true
-        }),
-        Animated.timing(itemSlideAnim, {
-          toValue: 0,
-          duration: 400,
-          delay,
-          useNativeDriver: true
-        })
-      ]).start();
-    }, []);
+
+  const renderSubscriptionItem = ({ item }) => {
+    const statusColor = getSubscriptionStatusColor(item.status);
     
     return (
-      <Animated.View
-        style={[
-          styles.subscriptionItemContainer,
-          {
-            opacity: itemFadeAnim,
-            transform: [{ translateY: itemSlideAnim }]
-          }
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.subscriptionItem}
-          onPress={() => navigation.navigate('SubscriptionDetails', { subscriptionId: item.subscription_id })}
-          activeOpacity={0.7}
-        >
-          <View style={styles.subscriptionHeader}>
-            <Text style={styles.subscriptionIdText}>
-              {item.type?.charAt(0).toUpperCase() + item.type?.slice(1) || 'Unknown'} Subscription
+      <View style={styles.itemCard}>
+        <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
+        <View style={styles.cardContent}>
+          <View style={styles.cardHeader}>
+            <View style={styles.orderInfo}>
+              <Text style={styles.orderId}>Subscription #{item.subscription_id}</Text>
+              <Text style={styles.date}>{formatDate(item.start_date)}</Text>
+            </View>
+            <View style={styles.statusContainer}>
+              <Text style={[styles.statusText, { color: statusColor }]}>{item.status}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.productInfo}>
+            <Text style={styles.productName}>{item.product_name}</Text>
+            <Text style={styles.frequency}>
+              {getFrequencyText(item.frequency)}
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-              <Text style={styles.statusText}>{item.status?.toUpperCase() || 'ACTIVE'}</Text>
-            </View>
           </View>
           
-          <View style={styles.subscriptionDetails}>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Start Date:</Text>
-              <Text style={styles.detailValue}>{formatDate(item.start_date)}</Text>
-            </View>
-            
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>End Date:</Text>
-              <Text style={styles.detailValue}>{formatDate(item.end_date)}</Text>
-            </View>
-            
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Delivery:</Text>
-              <Text style={styles.detailValue}>
-                {item.preferred_day || 'Daily'} ({item.delivery_time || 'Morning'})
-              </Text>
-            </View>
-          </View>
-          
-          <View style={styles.subscriptionFooter}>
-            {item.status === 'active' ? (
-              <TouchableOpacity style={styles.pauseButton}>
-                <Text style={styles.pauseButtonText}>Pause Subscription</Text>
-              </TouchableOpacity>
-            ) : item.status === 'paused' ? (
-              <TouchableOpacity style={styles.resumeButton}>
-                <Text style={styles.resumeButtonText}>Resume Subscription</Text>
-              </TouchableOpacity>
-            ) : null}
-            
-            <TouchableOpacity style={styles.viewButton}>
-              <Text style={styles.viewButtonText}>View Details</Text>
+          <View style={styles.cardActions}>
+            <Text style={styles.price}>${(+item.price).toFixed(2)}</Text>
+            <TouchableOpacity
+              style={styles.detailsButton}
+              onPress={() => navigation.navigate('SubscriptionDetailScreen', { subscriptionId: item.subscription_id })}
+            >
+              <Text style={styles.detailsButtonText}>View Details</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </Animated.View>
+        </View>
+      </View>
     );
   };
-  
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
+
+  const renderEmptyState = () => {
+    const filteredData = activeTab === 'orders' 
+      ? filterItems(orders) 
+      : filterItems(subscriptions);
+    
+    if (loading) {
+      return (
+        <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color="#4e9af1" />
-          <Text style={styles.loadingText}>Loading your orders...</Text>
+          <Text style={styles.emptyText}>Loading your {activeTab}...</Text>
         </View>
-      </SafeAreaView>
-    );
-  }
-  
+      );
+    }
+    
+    if (searchQuery && filteredData.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <FontAwesome name="search" size={50} color="#ccc" />
+          <Text style={styles.emptyText}>No {activeTab} match your search</Text>
+          <TouchableOpacity style={styles.clearSearchButton} onPress={clearSearch}>
+            <Text style={styles.clearSearchText}>Clear Search</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    if (activeTab === 'orders' && orders.length === 0) {
+      return (
+        <Animated.View 
+          style={[
+            styles.emptyContainer, 
+            { opacity: showEmptyAnimation }
+          ]}
+        >
+          <Image 
+            source={require('../../assets/empty-orders.png')} 
+            style={styles.emptyImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.emptyTitle}>No Orders Yet</Text>
+          <Text style={styles.emptyText}>Your order history will appear here</Text>
+          <TouchableOpacity 
+            style={styles.shopNowButton}
+            onPress={() => navigation.navigate('VendorListScreen')}
+          >
+            <Text style={styles.shopNowText}>Shop Now</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      );
+    }
+    
+    if (activeTab === 'subscriptions' && subscriptions.length === 0) {
+      return (
+        <Animated.View 
+          style={[
+            styles.emptyContainer, 
+            { opacity: showEmptyAnimation }
+          ]}
+        >
+          <Image 
+            source={require('../../assets/empty-subscription.png')} 
+            style={styles.emptyImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.emptyTitle}>No Subscriptions Yet</Text>
+          <Text style={styles.emptyText}>Subscribe to regular milk delivery</Text>
+          <TouchableOpacity 
+            style={styles.shopNowButton}
+            onPress={() => navigation.navigate('VendorListScreen')}
+          >
+            <Text style={styles.shopNowText}>Browse Vendors</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }]
-          }
-        ]}
-      >
+      <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Orders</Text>
-          
-          <View style={styles.searchBox}>
+          <Text style={styles.headerTitle}>My {activeTab === 'orders' ? 'Orders' : 'Subscriptions'}</Text>
+        </View>
+        
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <MaterialIcons name="search" size={24} color="#666" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search orders..."
+              placeholder={`Search ${activeTab}...`}
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholderTextColor="#999"
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <MaterialIcons name="close" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
         
         <View style={styles.tabContainer}>
-          <View style={styles.tabRow}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
-              onPress={() => setActiveTab('orders')}
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'orders' && styles.activeTab]}
+            onPress={() => setActiveTab('orders')}
+          >
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'orders' && styles.activeTabText
+              ]}
             >
-              <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
-                Orders
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'subscriptions' && styles.activeTab]}
-              onPress={() => setActiveTab('subscriptions')}
+              Orders
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'subscriptions' && styles.activeTab]}
+            onPress={() => setActiveTab('subscriptions')}
+          >
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'subscriptions' && styles.activeTabText
+              ]}
             >
-              <Text style={[styles.tabText, activeTab === 'subscriptions' && styles.activeTabText]}>
-                Subscriptions
-              </Text>
-            </TouchableOpacity>
-          </View>
+              Subscriptions
+            </Text>
+          </TouchableOpacity>
         </View>
         
         {activeTab === 'orders' ? (
-          filteredOrders.length > 0 ? (
-            <FlatList
-              data={filteredOrders}
-              renderItem={renderOrderItem}
-              keyExtractor={item => item.order_id}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  colors={['#4e9af1']}
-                  tintColor="#4e9af1"
-                />
-              }
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Image
-                source={require('../../assets/empty-orders.png')}
-                style={styles.emptyImage}
-              />
-              <Text style={styles.emptyTitle}>No Orders Found</Text>
-              <Text style={styles.emptyText}>
-                You haven't placed any orders yet.
-              </Text>
-              <TouchableOpacity
-                style={styles.shopButton}
-                onPress={() => navigation.navigate('UserHome')}
-              >
-                <Text style={styles.shopButtonText}>Shop Now</Text>
-              </TouchableOpacity>
-            </View>
-          )
+          <FlatList
+            data={filterItems(orders)}
+            renderItem={renderOrderItem}
+            keyExtractor={(item) => item.order_id || String(Math.random())}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={renderEmptyState}
+            onRefresh={handleRefresh}
+            refreshing={isRefreshing}
+          />
         ) : (
-          filteredSubscriptions.length > 0 ? (
-            <FlatList
-              data={filteredSubscriptions}
-              renderItem={renderSubscriptionItem}
-              keyExtractor={item => item.subscription_id}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  colors={['#4e9af1']}
-                  tintColor="#4e9af1"
-                />
-              }
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Image
-                source={require('../../assets/empty-subscriptions.png')}
-                style={styles.emptyImage}
-              />
-              <Text style={styles.emptyTitle}>No Subscriptions Found</Text>
-              <Text style={styles.emptyText}>
-                You don't have any active subscriptions.
-              </Text>
-              <TouchableOpacity
-                style={styles.shopButton}
-                onPress={() => navigation.navigate('UserHome')}
-              >
-                <Text style={styles.shopButtonText}>Subscribe Now</Text>
-              </TouchableOpacity>
-            </View>
-          )
+          <FlatList
+            data={filterItems(subscriptions)}
+            renderItem={renderSubscriptionItem}
+            keyExtractor={(item) => item.subscription_id || String(Math.random())}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={renderEmptyState}
+            onRefresh={handleRefresh}
+            refreshing={isRefreshing}
+          />
         )}
-      </Animated.View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -483,41 +439,55 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f7fa',
   },
-  content: {
-    flex: 1,
-  },
   header: {
-    padding: SIZES.PADDING_M,
     backgroundColor: '#fff',
+    paddingVertical: SIZES.PADDING_M,
+    paddingHorizontal: SIZES.PADDING_L,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
     ...getShadowStyles(2),
   },
   headerTitle: {
     fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: SIZES.PADDING_S,
+    textAlign: 'center',
   },
-  searchBox: {
+  searchContainer: {
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_S,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f5f5f5',
-    borderRadius: SIZES.RADIUS_S,
+    borderRadius: SIZES.RADIUS_M,
     paddingHorizontal: SIZES.PADDING_S,
-    height: scale(44),
-    justifyContent: 'center',
+  },
+  searchIcon: {
+    marginRight: SIZES.PADDING_XS,
   },
   searchInput: {
+    flex: 1,
+    paddingVertical: SIZES.PADDING_S,
     fontSize: SIZES.BODY,
     color: '#333',
   },
+  clearButton: {
+    padding: SIZES.PADDING_XS,
+  },
   tabContainer: {
-    backgroundColor: '#fff',
-    marginTop: SIZES.PADDING_XS,
-    ...getShadowStyles(1),
-  },
-  tabRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingBottom: SIZES.PADDING_S,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  tab: {
+  tabButton: {
     flex: 1,
     paddingVertical: SIZES.PADDING_S,
     alignItems: 'center',
@@ -527,39 +497,123 @@ const styles = StyleSheet.create({
   activeTab: {
     borderBottomColor: '#4e9af1',
   },
-  tabText: {
+  tabButtonText: {
     fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#666',
   },
   activeTabText: {
     color: '#4e9af1',
+    fontWeight: 'bold',
   },
   listContent: {
     padding: SIZES.PADDING_M,
-    paddingBottom: SIZES.PADDING_XL,
+    paddingBottom: SIZES.PADDING_XL + SIZES.PADDING_L,
   },
-  loadingContainer: {
+  itemCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    marginBottom: 15,
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+    position: 'relative',
+    flexDirection: 'row',
+  },
+  statusIndicator: {
+    width: 4,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
     flex: 1,
-    justifyContent: 'center',
+    paddingLeft: 10,
+  },
+  orderInfo: {
+    flex: 1,
+  },
+  orderId: {
+    fontSize: SIZES.SUBTITLE,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 2,
+  },
+  date: {
+    fontSize: SIZES.SMALL,
+    color: '#666',
+  },
+  statusContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: SIZES.PADDING_M,
+  statusText: {
+    fontSize: SIZES.SMALL,
+    color: '#666',
+    marginRight: SIZES.PADDING_XS,
+  },
+  cardContent: {
+    padding: SIZES.PADDING_M,
+  },
+  cardContentText: {
+    fontSize: SIZES.BODY,
+    color: '#333',
+    marginBottom: SIZES.PADDING_XS,
+  },
+  itemsText: {
+    fontSize: SIZES.SMALL,
+    color: '#666',
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    marginBottom: SIZES.PADDING_XS,
+  },
+  dateLabel: {
     fontSize: SIZES.BODY,
     color: '#666',
+    width: scale(100),
+  },
+  dateValue: {
+    fontSize: SIZES.BODY,
+    color: '#333',
+    flex: 1,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    padding: SIZES.PADDING_S,
+  },
+  viewDetailsButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: SIZES.PADDING_XS,
+  },
+  viewDetailsText: {
+    color: '#4e9af1',
+    fontSize: SIZES.BODY,
+    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.PADDING_XL,
+    paddingHorizontal: SIZES.PADDING_L,
+    paddingVertical: SIZES.PADDING_XL * 2,
   },
   emptyImage: {
-    width: scale(100),
-    height: scale(100),
+    width: scale(150),
+    height: scale(150),
     marginBottom: SIZES.PADDING_M,
-    opacity: 0.5,
   },
   emptyTitle: {
     fontSize: SIZES.SUBTITLE,
@@ -571,207 +625,64 @@ const styles = StyleSheet.create({
     fontSize: SIZES.BODY,
     color: '#666',
     textAlign: 'center',
-    marginBottom: SIZES.PADDING_L,
+    marginBottom: SIZES.PADDING_M,
   },
-  shopButton: {
+  shopNowButton: {
     backgroundColor: '#4e9af1',
     paddingVertical: SIZES.PADDING_S,
     paddingHorizontal: SIZES.PADDING_L,
-    borderRadius: SIZES.RADIUS_S,
+    borderRadius: SIZES.RADIUS_M,
+    ...getShadowStyles(1),
   },
-  shopButtonText: {
+  shopNowText: {
     color: '#fff',
     fontSize: SIZES.BODY,
     fontWeight: '600',
   },
-  orderItemContainer: {
-    marginBottom: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_L,
-    overflow: 'hidden',
-    ...getShadowStyles(2),
-  },
-  orderItem: {
-    backgroundColor: '#fff',
-    padding: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_L,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.PADDING_S,
-  },
-  orderIdText: {
-    fontSize: SIZES.BODY,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statusBadge: {
-    paddingHorizontal: SIZES.PADDING_S,
-    paddingVertical: SIZES.PADDING_XS,
-    borderRadius: SIZES.RADIUS_ROUND,
-  },
-  statusText: {
-    fontSize: SIZES.MINI,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  orderMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SIZES.PADDING_M,
-  },
-  dateText: {
-    fontSize: SIZES.CAPTION,
-    color: '#666',
-  },
-  amountText: {
-    fontSize: SIZES.BODY,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  progressContainer: {
-    marginBottom: SIZES.PADDING_M,
-  },
-  progressTrack: {
-    height: verticalScale(6),
-    backgroundColor: '#f0f0f0',
-    borderRadius: SIZES.RADIUS_XS,
-    marginBottom: SIZES.PADDING_XS,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#4e9af1',
-    borderRadius: SIZES.RADIUS_XS,
-  },
-  progressLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  progressLabel: {
-    fontSize: SIZES.MINI,
-    color: '#999',
-    width: '25%',
-    textAlign: 'center',
-  },
-  activeLabel: {
-    color: '#4e9af1',
-    fontWeight: '500',
-  },
-  orderFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  clearSearchButton: {
     marginTop: SIZES.PADDING_S,
-    paddingTop: SIZES.PADDING_M,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  itemsText: {
-    fontSize: SIZES.CAPTION,
-    color: '#666',
-  },
-  footerActions: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    backgroundColor: '#4e9af1',
     paddingVertical: SIZES.PADDING_XS,
-    paddingHorizontal: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_M,
+    backgroundColor: '#f0f0f0',
     borderRadius: SIZES.RADIUS_S,
   },
-  actionButtonText: {
-    color: '#fff',
-    fontWeight: '500',
-    fontSize: SIZES.CAPTION,
+  clearSearchText: {
+    color: '#666',
+    fontSize: SIZES.SMALL,
   },
-  subscriptionItemContainer: {
-    marginBottom: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_L,
-    overflow: 'hidden',
-    ...getShadowStyles(2),
+  productInfo: {
+    marginBottom: 10,
   },
-  subscriptionItem: {
-    backgroundColor: '#fff',
-    padding: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_L,
+  productName: {
+    fontSize: SIZES.BODY,
+    fontWeight: '600',
+    marginBottom: 5,
   },
-  subscriptionHeader: {
+  frequency: {
+    fontSize: SIZES.SMALL,
+    color: '#666',
+  },
+  cardActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SIZES.PADDING_M,
+    marginTop: 5,
   },
-  subscriptionIdText: {
+  price: {
     fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
   },
-  subscriptionDetails: {
-    backgroundColor: '#f9f9f9',
-    padding: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    marginBottom: SIZES.PADDING_M,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    marginBottom: SIZES.PADDING_XS,
-  },
-  detailLabel: {
-    width: scale(90),
-    fontSize: SIZES.CAPTION,
-    color: '#666',
-    fontWeight: '500',
-  },
-  detailValue: {
-    flex: 1,
-    fontSize: SIZES.CAPTION,
-    color: '#333',
-  },
-  subscriptionFooter: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: SIZES.PADDING_M,
-  },
-  pauseButton: {
-    flex: 1,
-    backgroundColor: '#fcbe03',
-    paddingVertical: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    marginRight: SIZES.PADDING_XS,
-    alignItems: 'center',
-  },
-  pauseButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: SIZES.CAPTION,
-  },
-  resumeButton: {
-    flex: 1,
-    backgroundColor: '#5cb85c',
-    paddingVertical: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    marginRight: SIZES.PADDING_XS,
-    alignItems: 'center',
-  },
-  resumeButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: SIZES.CAPTION,
-  },
-  viewButton: {
-    flex: 1,
+  detailsButton: {
     backgroundColor: '#f0f0f0',
-    paddingVertical: SIZES.PADDING_S,
-    borderRadius: SIZES.RADIUS_S,
-    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 5,
   },
-  viewButtonText: {
-    color: '#666',
+  detailsButtonText: {
+    fontSize: SIZES.SMALL,
+    color: '#333',
     fontWeight: '500',
-    fontSize: SIZES.CAPTION,
   },
 });
 
