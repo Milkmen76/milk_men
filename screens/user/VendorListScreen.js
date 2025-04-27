@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Platform,
-  StatusBar
+  StatusBar,
+  TextInput
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as localData from '../../services/localData';
@@ -22,6 +23,7 @@ const VendorListScreen = () => {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all'); // 'all' or 'subscribed'
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchVendors();
@@ -43,13 +45,25 @@ const VendorListScreen = () => {
   };
 
   const filteredVendors = () => {
-    if (activeTab === 'all') {
-      return vendors;
-    } else {
+    let filtered = vendors;
+    
+    if (activeTab === 'subscribed') {
       // This would filter subscribed vendors - for now returning all as example
       // In a real app, you would check which vendors the user is subscribed to
-      return vendors.filter((_, index) => index % 2 === 0); // Just an example filter
+      filtered = vendors.filter((_, index) => index % 2 === 0); // Just an example filter
     }
+    
+    // Apply search if query exists
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(vendor => {
+        const businessName = vendor.profile_info?.business_name?.toLowerCase() || '';
+        const address = vendor.profile_info?.address?.toLowerCase() || '';
+        return businessName.includes(query) || address.includes(query);
+      });
+    }
+    
+    return filtered;
   };
 
   const renderVendorItem = ({ item }) => (
@@ -100,26 +114,48 @@ const VendorListScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.headerTitle}>Available Milk Vendors</Text>
-        
-        <View style={styles.tabs}>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'all' && styles.activeTabButton]}
-            onPress={() => setActiveTab('all')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'all' && styles.activeTabText]}>
-              All Vendors
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Available Milk Vendors</Text>
           
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'subscribed' && styles.activeTabButton]}
-            onPress={() => setActiveTab('subscribed')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'subscribed' && styles.activeTabText]}>
-              Subscribed
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search vendors by name..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity 
+                style={styles.clearSearch} 
+                onPress={() => setSearchQuery('')}
+              >
+                <Text style={styles.clearSearchText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <View style={styles.tabs}>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'all' && styles.activeTabButton]}
+              onPress={() => setActiveTab('all')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'all' && styles.activeTabText]}>
+                All Vendors
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'subscribed' && styles.activeTabButton]}
+              onPress={() => setActiveTab('subscribed')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'subscribed' && styles.activeTabText]}>
+                Subscribed
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
         
         {filteredVendors().length > 0 ? (
@@ -129,10 +165,17 @@ const VendorListScreen = () => {
             keyExtractor={item => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            onRefresh={fetchVendors}
+            refreshing={loading}
           />
         ) : (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No vendors available at the moment</Text>
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Text style={styles.showAllText}>Clear search</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
@@ -149,7 +192,12 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: '#f5f7fa',
-    padding: SIZES.PADDING_M 
+  },
+  header: {
+    backgroundColor: '#fff',
+    padding: SIZES.PADDING_M,
+    paddingBottom: SIZES.PADDING_S,
+    ...getShadowStyles(2)
   },
   headerTitle: { 
     fontSize: SIZES.TITLE, 
@@ -157,12 +205,34 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.PADDING_S,
     color: '#333'
   },
+  searchContainer: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: SIZES.RADIUS_S,
+    marginBottom: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_S,
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  searchInput: {
+    height: verticalScale(40),
+    flex: 1,
+    fontSize: SIZES.BODY,
+    paddingHorizontal: SIZES.PADDING_S,
+  },
+  clearSearch: {
+    padding: SIZES.PADDING_XS,
+  },
+  clearSearchText: {
+    color: '#999',
+    fontSize: SIZES.BODY,
+    fontWeight: '500',
+  },
   tabs: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    marginBottom: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_S,
     borderRadius: SIZES.RADIUS_S,
-    ...getShadowStyles(1),
   },
   tabButton: {
     flex: 1,
@@ -184,6 +254,7 @@ const styles = StyleSheet.create({
     color: '#4e9af1'
   },
   listContent: {
+    padding: SIZES.PADDING_M,
     paddingBottom: SIZES.PADDING_L
   },
   vendorCard: {
@@ -263,7 +334,13 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: SIZES.BODY,
     color: '#666',
-    textAlign: 'center'
+    textAlign: 'center',
+    marginBottom: SIZES.PADDING_S
+  },
+  showAllText: {
+    fontSize: SIZES.CAPTION,
+    color: '#4e9af1',
+    fontWeight: '500'
   }
 });
 

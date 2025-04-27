@@ -326,92 +326,21 @@ const ProfileScreen = ({ route }) => {
         )}
       </View>
       
-      {!editing && (
-        <View style={styles.quickLinks}>
-          <Text style={styles.sectionTitle}>Quick Links</Text>
-          
-          <TouchableOpacity 
-            style={styles.linkButton}
-            onPress={() => navigation.navigate('HistoryScreen')}
-          >
-            <Text style={styles.linkText}>Order History</Text>
-            <Text style={styles.linkArrow}>›</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.linkButton}
-            onPress={() => navigation.navigate('VendorList')}
-          >
-            <Text style={styles.linkText}>Milk Vendors</Text>
-            <Text style={styles.linkArrow}>›</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.linkButton}
-            onPress={() => Alert.alert('Help', 'Contact customer support at support@milkapp.com')}
-          >
-            <Text style={styles.linkText}>Help & Support</Text>
-            <Text style={styles.linkArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </>
   );
   
-  const renderSettingsContent = () => (
-    <View style={styles.settingsContainer}>
-      <Text style={styles.sectionTitle}>App Settings</Text>
-      
-      <View style={styles.settingGroup}>
-        <Text style={styles.settingLabel}>Notifications</Text>
-        <TouchableOpacity style={styles.settingToggle}>
-          <View style={[styles.toggleOption, styles.activeToggle]}>
-            <Text style={styles.toggleText}>On</Text>
-          </View>
-          <View style={styles.toggleOption}>
-            <Text style={styles.toggleText}>Off</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.settingGroup}>
-        <Text style={styles.settingLabel}>Dark Mode</Text>
-        <TouchableOpacity style={styles.settingToggle}>
-          <View style={styles.toggleOption}>
-            <Text style={styles.toggleText}>On</Text>
-          </View>
-          <View style={[styles.toggleOption, styles.activeToggle]}>
-            <Text style={styles.toggleText}>Off</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.settingGroup}>
-        <Text style={styles.settingLabel}>Language</Text>
-        <TouchableOpacity style={styles.languageSelector}>
-          <Text style={styles.languageText}>English</Text>
-          <Text style={styles.dropdownArrow}>▼</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <Text style={[styles.sectionTitle, {marginTop: SIZES.PADDING_L}]}>About</Text>
-      
-      <TouchableOpacity style={styles.aboutItem}>
-        <Text style={styles.aboutText}>Terms of Service</Text>
-        <Text style={styles.aboutArrow}>›</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.aboutItem}>
-        <Text style={styles.aboutText}>Privacy Policy</Text>
-        <Text style={styles.aboutArrow}>›</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.aboutItem}>
-        <Text style={styles.aboutText}>App Version</Text>
-        <Text style={styles.versionText}>1.0.0</Text>
-      </TouchableOpacity>
-    </View>
-  );
+ 
+
+  if (loading && !editing) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
   
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -459,14 +388,6 @@ const ProfileScreen = ({ route }) => {
             </Text>
           </TouchableOpacity>
           
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'settings' && styles.activeTabButton]}
-            onPress={() => setActiveTab('settings')}
-          >
-            <Text style={[styles.tabButtonText, activeTab === 'settings' && styles.activeTabText]}>
-              Settings
-            </Text>
-          </TouchableOpacity>
         </View>
         
         {activeTab === 'profile' ? renderProfileContent() : renderSettingsContent()}
@@ -558,12 +479,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f7fa'
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  loadingText: {
+    marginTop: SIZES.PADDING_S,
+    fontSize: SIZES.BODY,
+    color: '#666'
+  },
   header: {
     alignItems: 'center',
-    paddingVertical: SIZES.PADDING_XL,
+    paddingVertical: SIZES.PADDING_L,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee'
+    borderBottomColor: '#eee',
+    ...getShadowStyles(2)
   },
   avatarContainer: {
     width: scale(100),
@@ -593,7 +525,7 @@ const styles = StyleSheet.create({
   },
   editAvatarText: {
     color: '#fff',
-    fontSize: SIZES.MINI,
+    fontSize: SIZES.SMALL,
     fontWeight: 'bold'
   },
   headerTitle: {
@@ -603,7 +535,7 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.PADDING_XS
   },
   roleLabel: {
-    fontSize: SIZES.MINI,
+    fontSize: SIZES.SMALL,
     color: '#4e9af1',
     fontWeight: '600',
     backgroundColor: '#f0f8ff',
@@ -905,7 +837,7 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.PADDING_S
   },
   avatarOptionText: {
-    fontSize: SIZES.MINI,
+    fontSize: SIZES.SMALL,
     color: '#666',
     textAlign: 'center'
   },
