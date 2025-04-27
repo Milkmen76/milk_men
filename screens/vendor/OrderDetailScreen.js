@@ -7,13 +7,19 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
-  Alert
+  Alert,
+  SafeAreaView,
+  Platform,
+  StatusBar
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as localData from '../../services/localData';
 import { useAuth } from '../../contexts/AuthContext';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import moment from 'moment';
+
+// Import responsive utility functions
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 // Function to get the image source for a product
 const getProductImage = (product) => {
@@ -203,26 +209,30 @@ const OrderDetailScreen = () => {
   
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading order details...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading order details...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
   
   if (!order) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Order not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Order not found</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
   
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
           <View style={styles.orderIdContainer}>
@@ -342,17 +352,22 @@ const OrderDetailScreen = () => {
         
         {renderStatusOptions()}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f7fa',
   },
   scrollContainer: {
-    padding: 16,
+    padding: SIZES.PADDING_M,
   },
   loadingContainer: {
     flex: 1,
@@ -361,52 +376,52 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f7fa',
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: SIZES.PADDING_S,
+    fontSize: SIZES.BODY,
     color: '#666',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: SIZES.PADDING_L,
     backgroundColor: '#f5f7fa',
   },
   errorText: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#F44336',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
   },
   backButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_L,
     backgroundColor: '#4e9af1',
-    borderRadius: 8,
+    borderRadius: SIZES.RADIUS_S,
   },
   backButtonText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: SIZES.BODY,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
   },
   orderIdContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   orderIdLabel: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
-    marginRight: 8,
+    marginRight: SIZES.PADDING_XS,
   },
   orderId: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#666',
   },
   statusContainer: {
@@ -414,150 +429,138 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusLabel: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
-    marginRight: 8,
+    marginRight: SIZES.PADDING_XS,
   },
   statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_XS,
   },
   statusText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: SIZES.MINI,
     fontWeight: 'bold',
   },
   section: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: SIZES.RADIUS_L,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
+    ...getShadowStyles(2),
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    paddingBottom: 8,
+    paddingBottom: SIZES.PADDING_XS,
   },
   infoRow: {
     flexDirection: 'row',
-    marginBottom: 10,
+    marginBottom: SIZES.PADDING_S,
   },
   infoLabel: {
-    width: 120,
-    fontSize: 15,
+    width: scale(120),
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#666',
   },
   infoValue: {
     flex: 1,
-    fontSize: 15,
+    fontSize: SIZES.BODY,
     color: '#333',
   },
   addressText: {
-    fontSize: 15,
+    fontSize: SIZES.BODY,
     color: '#333',
-    lineHeight: 22,
+    lineHeight: SIZES.BODY * 1.5,
   },
   noDataText: {
-    fontSize: 15,
+    fontSize: SIZES.BODY,
     color: '#666',
     fontStyle: 'italic',
     textAlign: 'center',
-    paddingVertical: 10,
+    paddingVertical: SIZES.PADDING_S,
   },
   productCard: {
     flexDirection: 'row',
-    padding: 12,
-    marginBottom: 12,
+    padding: SIZES.PADDING_S,
+    marginBottom: SIZES.PADDING_S,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   productImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
+    width: scale(60),
+    height: scale(60),
+    borderRadius: SIZES.RADIUS_S,
     backgroundColor: '#f0f8ff',
-    marginRight: 12,
+    marginRight: SIZES.PADDING_S,
   },
   productInfo: {
     flex: 1,
   },
   productName: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   productDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   productPrice: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
   },
   productTotal: {
-    fontSize: 15,
+    fontSize: SIZES.BODY,
     fontWeight: '600',
     color: '#4e9af1',
   },
   productCategory: {
-    fontSize: 13,
+    fontSize: SIZES.CAPTION,
     color: '#888',
   },
   statusOptionsContainer: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: SIZES.RADIUS_L,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_L,
+    ...getShadowStyles(2),
   },
   statusOptionsTitle: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
+    marginBottom: SIZES.PADDING_S,
   },
   statusOptions: {
     flexDirection: 'row',
   },
   statusOption: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginRight: 10,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_ROUND,
+    marginRight: SIZES.PADDING_S,
     opacity: 0.8,
   },
   currentStatusOption: {
     opacity: 1,
     borderWidth: 2,
     borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    ...getShadowStyles(3),
   },
   statusOptionText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
   },
 });
 

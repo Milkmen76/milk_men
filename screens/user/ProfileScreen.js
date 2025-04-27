@@ -12,11 +12,15 @@ import {
   Platform,
   SafeAreaView,
   Modal,
-  FlatList
+  FlatList,
+  StatusBar
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
+
+// Import responsive utility functions
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 // Avatar image mapping
 const avatarImages = {
@@ -42,6 +46,7 @@ const ProfileScreen = ({ route }) => {
   const [loading, setLoading] = useState(false);
   const [orderCount, setOrderCount] = useState(0);
   const [subscriptionCount, setSubscriptionCount] = useState(0);
+  const [activeTab, setActiveTab] = useState('profile'); // 'profile' or 'settings'
   
   // Address input ref to focus on it when requested
   const addressInputRef = React.useRef(null);
@@ -229,6 +234,185 @@ const ProfileScreen = ({ route }) => {
     </TouchableOpacity>
   );
   
+  const renderProfileContent = () => (
+    <>
+      <View style={styles.formContainer}>
+        <Text style={styles.sectionTitle}>{editing ? 'Edit Information' : 'Personal Information'}</Text>
+        
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Name</Text>
+          {editing ? (
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Your name"
+            />
+          ) : (
+            <Text style={styles.infoText}>{user?.name || 'Not provided'}</Text>
+          )}
+        </View>
+        
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Email</Text>
+          {editing ? (
+            <TextInput
+              style={[styles.input, styles.disabledInput]}
+              value={email}
+              editable={false}
+            />
+          ) : (
+            <Text style={styles.infoText}>{user?.email || 'Not provided'}</Text>
+          )}
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Phone Number</Text>
+          {editing ? (
+            <TextInput
+              style={styles.input}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Your phone number"
+              keyboardType="phone-pad"
+            />
+          ) : (
+            <Text style={styles.infoText}>{user?.profile_info?.phone || 'Not provided'}</Text>
+          )}
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Delivery Address</Text>
+          {editing ? (
+            <TextInput
+              ref={addressInputRef}
+              style={[styles.input, styles.textAreaInput]}
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Enter your delivery address"
+              multiline
+              numberOfLines={3}
+            />
+          ) : (
+            <Text style={styles.infoText}>{user?.profile_info?.address || 'Not provided'}</Text>
+          )}
+        </View>
+        
+        {editing && (
+          <>
+            <Text style={[styles.sectionTitle, {marginTop: SIZES.PADDING_L}]}>Change Password</Text>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>New Password (leave blank to keep current)</Text>
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholder="New password"
+              />
+            </View>
+            
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Confirm New Password</Text>
+              <TextInput
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                placeholder="Confirm new password"
+              />
+            </View>
+          </>
+        )}
+      </View>
+      
+      {!editing && (
+        <View style={styles.quickLinks}>
+          <Text style={styles.sectionTitle}>Quick Links</Text>
+          
+          <TouchableOpacity 
+            style={styles.linkButton}
+            onPress={() => navigation.navigate('HistoryScreen')}
+          >
+            <Text style={styles.linkText}>Order History</Text>
+            <Text style={styles.linkArrow}>›</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.linkButton}
+            onPress={() => navigation.navigate('VendorList')}
+          >
+            <Text style={styles.linkText}>Milk Vendors</Text>
+            <Text style={styles.linkArrow}>›</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.linkButton}
+            onPress={() => Alert.alert('Help', 'Contact customer support at support@milkapp.com')}
+          >
+            <Text style={styles.linkText}>Help & Support</Text>
+            <Text style={styles.linkArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </>
+  );
+  
+  const renderSettingsContent = () => (
+    <View style={styles.settingsContainer}>
+      <Text style={styles.sectionTitle}>App Settings</Text>
+      
+      <View style={styles.settingGroup}>
+        <Text style={styles.settingLabel}>Notifications</Text>
+        <TouchableOpacity style={styles.settingToggle}>
+          <View style={[styles.toggleOption, styles.activeToggle]}>
+            <Text style={styles.toggleText}>On</Text>
+          </View>
+          <View style={styles.toggleOption}>
+            <Text style={styles.toggleText}>Off</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.settingGroup}>
+        <Text style={styles.settingLabel}>Dark Mode</Text>
+        <TouchableOpacity style={styles.settingToggle}>
+          <View style={styles.toggleOption}>
+            <Text style={styles.toggleText}>On</Text>
+          </View>
+          <View style={[styles.toggleOption, styles.activeToggle]}>
+            <Text style={styles.toggleText}>Off</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.settingGroup}>
+        <Text style={styles.settingLabel}>Language</Text>
+        <TouchableOpacity style={styles.languageSelector}>
+          <Text style={styles.languageText}>English</Text>
+          <Text style={styles.dropdownArrow}>▼</Text>
+        </TouchableOpacity>
+      </View>
+      
+      <Text style={[styles.sectionTitle, {marginTop: SIZES.PADDING_L}]}>About</Text>
+      
+      <TouchableOpacity style={styles.aboutItem}>
+        <Text style={styles.aboutText}>Terms of Service</Text>
+        <Text style={styles.aboutArrow}>›</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.aboutItem}>
+        <Text style={styles.aboutText}>Privacy Policy</Text>
+        <Text style={styles.aboutArrow}>›</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity style={styles.aboutItem}>
+        <Text style={styles.aboutText}>App Version</Text>
+        <Text style={styles.versionText}>1.0.0</Text>
+      </TouchableOpacity>
+    </View>
+  );
+  
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -265,125 +449,27 @@ const ProfileScreen = ({ route }) => {
           </TouchableOpacity>
         </View>
         
-        <View style={styles.formContainer}>
-          <Text style={styles.sectionTitle}>{editing ? 'Edit Information' : 'Personal Information'}</Text>
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'profile' && styles.activeTabButton]}
+            onPress={() => setActiveTab('profile')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'profile' && styles.activeTabText]}>
+              Profile
+            </Text>
+          </TouchableOpacity>
           
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Name</Text>
-            {editing ? (
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Your name"
-              />
-            ) : (
-              <Text style={styles.infoText}>{user?.name || 'Not provided'}</Text>
-            )}
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Email</Text>
-            {editing ? (
-              <TextInput
-                style={[styles.input, styles.disabledInput]}
-                value={email}
-                editable={false}
-              />
-            ) : (
-              <Text style={styles.infoText}>{user?.email || 'Not provided'}</Text>
-            )}
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Phone Number</Text>
-            {editing ? (
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Your phone number"
-                keyboardType="phone-pad"
-              />
-            ) : (
-              <Text style={styles.infoText}>{user?.profile_info?.phone || 'Not provided'}</Text>
-            )}
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Delivery Address</Text>
-            {editing ? (
-              <TextInput
-                ref={addressInputRef}
-                style={[styles.input, styles.textAreaInput]}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Enter your delivery address"
-                multiline
-                numberOfLines={3}
-              />
-            ) : (
-              <Text style={styles.infoText}>{user?.profile_info?.address || 'Not provided'}</Text>
-            )}
-          </View>
-          
-          {editing && (
-            <>
-              <Text style={[styles.sectionTitle, {marginTop: 20}]}>Change Password</Text>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>New Password (leave blank to keep current)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  placeholder="New password"
-                />
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Confirm New Password</Text>
-                <TextInput
-                  style={styles.input}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  placeholder="Confirm new password"
-                />
-              </View>
-            </>
-          )}
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'settings' && styles.activeTabButton]}
+            onPress={() => setActiveTab('settings')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'settings' && styles.activeTabText]}>
+              Settings
+            </Text>
+          </TouchableOpacity>
         </View>
         
-        {!editing && (
-          <View style={styles.quickLinks}>
-            <Text style={styles.sectionTitle}>Quick Links</Text>
-            
-            <TouchableOpacity 
-              style={styles.linkButton}
-              onPress={() => navigation.navigate('HistoryScreen')}
-            >
-              <Text style={styles.linkText}>Order History</Text>
-              <Text style={styles.linkArrow}>›</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.linkButton}
-              onPress={() => navigation.navigate('VendorList')}
-            >
-              <Text style={styles.linkText}>Milk Vendors</Text>
-              <Text style={styles.linkArrow}>›</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.linkButton}
-              onPress={() => Alert.alert('Help', 'Contact customer support at support@milkapp.com')}
-            >
-              <Text style={styles.linkText}>Help & Support</Text>
-              <Text style={styles.linkArrow}>›</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {activeTab === 'profile' ? renderProfileContent() : renderSettingsContent()}
         
         <View style={styles.actionsContainer}>
           {editing ? (
@@ -410,12 +496,14 @@ const ProfileScreen = ({ route }) => {
             </>
           ) : (
             <>
-              <TouchableOpacity 
-                style={styles.editButton} 
-                onPress={handleEditToggle}
-              >
-                <Text style={styles.editButtonText}>Edit Profile</Text>
-              </TouchableOpacity>
+              {activeTab === 'profile' && (
+                <TouchableOpacity 
+                  style={styles.editButton} 
+                  onPress={handleEditToggle}
+                >
+                  <Text style={styles.editButtonText}>Edit Profile</Text>
+                </TouchableOpacity>
+              )}
               
               <TouchableOpacity 
                 style={styles.logoutButton} 
@@ -463,154 +551,142 @@ const ProfileScreen = ({ route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f5f7fa'
   },
   header: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: SIZES.PADDING_XL,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee'
   },
   avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: scale(100),
+    height: scale(100),
+    borderRadius: scale(50),
     backgroundColor: '#f0f8ff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    marginBottom: SIZES.PADDING_S,
+    ...getShadowStyles(2),
   },
   avatar: {
-    width: 60,
-    height: 60
+    width: scale(60),
+    height: scale(60)
   },
   editAvatarButton: {
     position: 'absolute',
     right: 0,
     bottom: 0,
     backgroundColor: '#4e9af1',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
+    borderRadius: SIZES.RADIUS_ROUND,
+    width: scale(30),
+    height: scale(30),
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2),
   },
   editAvatarText: {
     color: '#fff',
-    fontSize: 8,
+    fontSize: SIZES.MINI,
     fontWeight: 'bold'
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   roleLabel: {
-    fontSize: 12,
+    fontSize: SIZES.MINI,
     color: '#4e9af1',
     fontWeight: '600',
     backgroundColor: '#f0f8ff',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12
+    paddingHorizontal: SIZES.PADDING_S,
+    paddingVertical: SIZES.PADDING_XS,
+    borderRadius: SIZES.RADIUS_ROUND
   },
   statsContainer: {
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 10
+    marginHorizontal: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_S
   },
   statCard: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
-    marginHorizontal: 5,
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_M,
+    marginHorizontal: SIZES.PADDING_XS,
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2),
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#4e9af1',
-    marginBottom: 4
+    marginBottom: SIZES.PADDING_XS
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666'
   },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    marginHorizontal: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
+    ...getShadowStyles(1),
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: SIZES.PADDING_S,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent'
+  },
+  activeTabButton: {
+    borderBottomColor: '#4e9af1'
+  },
+  tabButtonText: {
+    fontSize: SIZES.BODY,
+    fontWeight: '500',
+    color: '#666'
+  },
+  activeTabText: {
+    color: '#4e9af1'
+  },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 16,
-    marginLeft: 5
+    marginBottom: SIZES.PADDING_M,
+    marginLeft: SIZES.PADDING_XS
   },
   formContainer: {
-    padding: 16
+    padding: SIZES.PADDING_M
   },
   formGroup: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
+    marginBottom: SIZES.PADDING_S,
+    ...getShadowStyles(1),
   },
   label: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
-    marginBottom: 6
+    marginBottom: SIZES.PADDING_XS
   },
   infoText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#333'
   },
   disabledInput: {
@@ -620,120 +696,168 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 6,
-    padding: 12,
-    fontSize: 16,
+    borderRadius: SIZES.RADIUS_S,
+    padding: SIZES.PADDING_S,
+    fontSize: SIZES.BODY,
     backgroundColor: '#f8f8f8'
   },
   textAreaInput: {
-    height: 100,
+    height: verticalScale(100),
     textAlignVertical: 'top'
   },
   quickLinks: {
-    padding: 16
+    padding: SIZES.PADDING_M
   },
   linkButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
+    marginBottom: SIZES.PADDING_S,
+    ...getShadowStyles(1),
   },
   linkText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#333'
   },
   linkArrow: {
-    fontSize: 20,
+    fontSize: SIZES.TITLE,
+    color: '#999'
+  },
+  // Settings tab styles
+  settingsContainer: {
+    padding: SIZES.PADDING_M
+  },
+  settingGroup: {
+    backgroundColor: '#fff',
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
+    marginBottom: SIZES.PADDING_S,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    ...getShadowStyles(1),
+  },
+  settingLabel: {
+    fontSize: SIZES.BODY,
+    color: '#333',
+    fontWeight: '500'
+  },
+  settingToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#f0f0f0',
+    borderRadius: SIZES.RADIUS_ROUND,
+    overflow: 'hidden'
+  },
+  toggleOption: {
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_M,
+    minWidth: scale(50),
+    alignItems: 'center'
+  },
+  activeToggle: {
+    backgroundColor: '#4e9af1'
+  },
+  toggleText: {
+    fontSize: SIZES.CAPTION,
+    fontWeight: '500',
+    color: '#666'
+  },
+  languageSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S
+  },
+  languageText: {
+    fontSize: SIZES.BODY,
+    color: '#333',
+    marginRight: SIZES.PADDING_S
+  },
+  dropdownArrow: {
+    fontSize: SIZES.CAPTION,
+    color: '#999'
+  },
+  aboutItem: {
+    backgroundColor: '#fff',
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
+    marginBottom: SIZES.PADDING_S,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    ...getShadowStyles(1),
+  },
+  aboutText: {
+    fontSize: SIZES.BODY,
+    color: '#333'
+  },
+  aboutArrow: {
+    fontSize: SIZES.SUBTITLE,
+    color: '#999'
+  },
+  versionText: {
+    fontSize: SIZES.CAPTION,
     color: '#999'
   },
   actionsContainer: {
-    padding: 16,
-    marginBottom: 30
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_XL
   },
   editButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
     alignItems: 'center',
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    marginBottom: SIZES.PADDING_S,
+    ...getShadowStyles(2),
   },
   editButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold'
   },
   logoutButton: {
     backgroundColor: '#f8f8f8',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd'
   },
   logoutButtonText: {
     color: '#e74c3c',
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500'
   },
   saveButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
     alignItems: 'center',
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    marginBottom: SIZES.PADDING_S,
+    ...getShadowStyles(2),
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold'
   },
   cancelButton: {
     backgroundColor: '#f8f8f8',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd'
   },
   cancelButtonText: {
     color: '#666',
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500'
   },
   modalOverlay: {
@@ -741,42 +865,32 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: SIZES.PADDING_L
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
+    borderRadius: SIZES.RADIUS_M,
+    padding: SIZES.PADDING_L,
     width: '90%',
     maxHeight: '70%',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
+    ...getShadowStyles(4),
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: SIZES.PADDING_L,
     textAlign: 'center',
     color: '#333'
   },
   avatarGrid: {
-    paddingVertical: 10
+    paddingVertical: SIZES.PADDING_S
   },
   avatarOption: {
     flex: 1,
-    margin: 8,
+    margin: SIZES.PADDING_S,
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
+    padding: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
     borderWidth: 1,
     borderColor: '#ddd',
     backgroundColor: '#f8f8f8'
@@ -786,26 +900,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#e6f2ff'
   },
   avatarOptionImage: {
-    width: 60,
-    height: 60,
-    marginBottom: 8
+    width: scale(60),
+    height: scale(60),
+    marginBottom: SIZES.PADDING_S
   },
   avatarOptionText: {
-    fontSize: 12,
+    fontSize: SIZES.MINI,
     color: '#666',
     textAlign: 'center'
   },
   closeButton: {
-    marginTop: 15,
+    marginTop: SIZES.PADDING_M,
     backgroundColor: '#f8f8f8',
-    padding: 12,
-    borderRadius: 8,
+    padding: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd'
   },
   closeButtonText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#666'
   },
 });

@@ -11,11 +11,15 @@ import {
   TextInput,
   Image,
   Animated,
-  RefreshControl
+  RefreshControl,
+  StatusBar
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
+
+// Import responsive utility functions
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 const MyOrdersScreen = () => {
   const navigation = useNavigation();
@@ -337,15 +341,17 @@ const MyOrdersScreen = () => {
   
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading your orders...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading your orders...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
   
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <Animated.View
         style={[
           styles.content,
@@ -370,23 +376,25 @@ const MyOrdersScreen = () => {
         </View>
         
         <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
-            onPress={() => setActiveTab('orders')}
-          >
-            <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
-              Orders
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'subscriptions' && styles.activeTab]}
-            onPress={() => setActiveTab('subscriptions')}
-          >
-            <Text style={[styles.tabText, activeTab === 'subscriptions' && styles.activeTabText]}>
-              Subscriptions
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.tabRow}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
+              onPress={() => setActiveTab('orders')}
+            >
+              <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
+                Orders
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'subscriptions' && styles.activeTab]}
+              onPress={() => setActiveTab('subscriptions')}
+            >
+              <Text style={[styles.tabText, activeTab === 'subscriptions' && styles.activeTabText]}>
+                Subscriptions
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
         
         {activeTab === 'orders' ? (
@@ -466,64 +474,52 @@ const MyOrdersScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f5f7fa',
   },
   content: {
     flex: 1,
   },
   header: {
-    padding: 16,
+    padding: SIZES.PADDING_M,
     backgroundColor: '#fff',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2),
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
+    marginBottom: SIZES.PADDING_S,
   },
   searchBox: {
     backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 44,
+    borderRadius: SIZES.RADIUS_S,
+    paddingHorizontal: SIZES.PADDING_S,
+    height: scale(44),
     justifyContent: 'center',
   },
   searchInput: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#333',
   },
   tabContainer: {
-    flexDirection: 'row',
     backgroundColor: '#fff',
-    marginTop: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    marginTop: SIZES.PADDING_XS,
+    ...getShadowStyles(1),
+  },
+  tabRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   tab: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: SIZES.PADDING_S,
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
@@ -532,7 +528,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#4e9af1',
   },
   tabText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#666',
   },
@@ -540,8 +536,8 @@ const styles = StyleSheet.create({
     color: '#4e9af1',
   },
   listContent: {
-    padding: 16,
-    paddingBottom: 40,
+    padding: SIZES.PADDING_M,
+    paddingBottom: SIZES.PADDING_XL,
   },
   loadingContainer: {
     flex: 1,
@@ -549,122 +545,112 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: SIZES.PADDING_M,
+    fontSize: SIZES.BODY,
     color: '#666',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: SIZES.PADDING_XL,
   },
   emptyImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 16,
+    width: scale(100),
+    height: scale(100),
+    marginBottom: SIZES.PADDING_M,
     opacity: 0.5,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: SIZES.PADDING_S,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: SIZES.PADDING_L,
   },
   shopButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_L,
+    borderRadius: SIZES.RADIUS_S,
   },
   shopButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '600',
   },
   orderItemContainer: {
-    marginBottom: 16,
-    borderRadius: 12,
+    marginBottom: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_L,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2),
   },
   orderItem: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_L,
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: SIZES.PADDING_S,
   },
   orderIdText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: SIZES.PADDING_S,
+    paddingVertical: SIZES.PADDING_XS,
+    borderRadius: SIZES.RADIUS_ROUND,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: SIZES.MINI,
     fontWeight: 'bold',
     color: '#fff',
   },
   orderMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
   },
   amountText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
   },
   progressContainer: {
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
   },
   progressTrack: {
-    height: 6,
+    height: verticalScale(6),
     backgroundColor: '#f0f0f0',
-    borderRadius: 3,
-    marginBottom: 8,
+    borderRadius: SIZES.RADIUS_XS,
+    marginBottom: SIZES.PADDING_XS,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     backgroundColor: '#4e9af1',
-    borderRadius: 3,
+    borderRadius: SIZES.RADIUS_XS,
   },
   progressLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   progressLabel: {
-    fontSize: 12,
+    fontSize: SIZES.MINI,
     color: '#999',
     width: '25%',
     textAlign: 'center',
@@ -677,13 +663,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 16,
+    marginTop: SIZES.PADDING_S,
+    paddingTop: SIZES.PADDING_M,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
   },
   itemsText: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
   },
   footerActions: {
@@ -691,108 +677,101 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
   },
   actionButtonText: {
     color: '#fff',
     fontWeight: '500',
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
   },
   subscriptionItemContainer: {
-    marginBottom: 16,
-    borderRadius: 12,
+    marginBottom: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_L,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...getShadowStyles(2),
   },
   subscriptionItem: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_L,
   },
   subscriptionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
   },
   subscriptionIdText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
   },
   subscriptionDetails: {
     backgroundColor: '#f9f9f9',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    padding: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    marginBottom: SIZES.PADDING_M,
   },
   detailItem: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: SIZES.PADDING_XS,
   },
   detailLabel: {
-    width: 90,
-    fontSize: 14,
+    width: scale(90),
+    fontSize: SIZES.CAPTION,
     color: '#666',
     fontWeight: '500',
   },
   detailValue: {
     flex: 1,
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#333',
   },
   subscriptionFooter: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
-    paddingTop: 16,
+    paddingTop: SIZES.PADDING_M,
   },
   pauseButton: {
     flex: 1,
     backgroundColor: '#fcbe03',
-    paddingVertical: 10,
-    borderRadius: 6,
-    marginRight: 8,
+    paddingVertical: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    marginRight: SIZES.PADDING_XS,
     alignItems: 'center',
   },
   pauseButtonText: {
     color: '#fff',
     fontWeight: '600',
+    fontSize: SIZES.CAPTION,
   },
   resumeButton: {
     flex: 1,
     backgroundColor: '#5cb85c',
-    paddingVertical: 10,
-    borderRadius: 6,
-    marginRight: 8,
+    paddingVertical: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    marginRight: SIZES.PADDING_XS,
     alignItems: 'center',
   },
   resumeButtonText: {
     color: '#fff',
     fontWeight: '600',
+    fontSize: SIZES.CAPTION,
   },
   viewButton: {
     flex: 1,
     backgroundColor: '#f0f0f0',
-    paddingVertical: 10,
-    borderRadius: 6,
+    paddingVertical: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
     alignItems: 'center',
   },
   viewButtonText: {
     color: '#666',
     fontWeight: '500',
+    fontSize: SIZES.CAPTION,
   },
 });
 

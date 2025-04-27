@@ -1,31 +1,56 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  Image, 
+  ActivityIndicator,
+  SafeAreaView,
+  Platform,
+  StatusBar
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as localData from '../../services/localData';
+
+// Import responsive utility functions
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 const VendorListScreen = () => {
   const navigation = useNavigation();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all'); // 'all' or 'subscribed'
 
   useEffect(() => {
-    const fetchVendors = async () => {
-      try {
-        // Fetch all users, then filter for approved vendors
-        const allUsers = await localData.getUsers();
-        const approvedVendors = allUsers.filter(
-          u => u.role === 'vendor' && u.approval_status === 'approved'
-        );
-        setVendors(approvedVendors);
-      } catch (error) {
-        console.error('Error fetching vendors:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchVendors();
   }, []);
+
+  const fetchVendors = async () => {
+    try {
+      // Fetch all users, then filter for approved vendors
+      const allUsers = await localData.getUsers();
+      const approvedVendors = allUsers.filter(
+        u => u.role === 'vendor' && u.approval_status === 'approved'
+      );
+      setVendors(approvedVendors);
+    } catch (error) {
+      console.error('Error fetching vendors:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredVendors = () => {
+    if (activeTab === 'all') {
+      return vendors;
+    } else {
+      // This would filter subscribed vendors - for now returning all as example
+      // In a real app, you would check which vendors the user is subscribed to
+      return vendors.filter((_, index) => index % 2 === 0); // Just an example filter
+    }
+  };
 
   const renderVendorItem = ({ item }) => (
     <TouchableOpacity 
@@ -63,88 +88,139 @@ const VendorListScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading vendors...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading vendors...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.headerTitle}>Available Milk Vendors</Text>
-      
-      {vendors.length > 0 ? (
-        <FlatList
-          data={vendors}
-          renderItem={renderVendorItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No vendors available at the moment</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.headerTitle}>Available Milk Vendors</Text>
+        
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'all' && styles.activeTabButton]}
+            onPress={() => setActiveTab('all')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'all' && styles.activeTabText]}>
+              All Vendors
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'subscribed' && styles.activeTabButton]}
+            onPress={() => setActiveTab('subscribed')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'subscribed' && styles.activeTabText]}>
+              Subscribed
+            </Text>
+          </TouchableOpacity>
         </View>
-      )}
-    </View>
+        
+        {filteredVendors().length > 0 ? (
+          <FlatList
+            data={filteredVendors()}
+            renderItem={renderVendorItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No vendors available at the moment</Text>
+          </View>
+        )}
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: { 
     flex: 1, 
-    backgroundColor: '#f9f9f9',
-    padding: 16 
+    backgroundColor: '#f5f7fa',
+    padding: SIZES.PADDING_M 
   },
   headerTitle: { 
-    fontSize: 22, 
+    fontSize: SIZES.TITLE, 
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_S,
     color: '#333'
   },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    marginBottom: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
+    ...getShadowStyles(1),
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: SIZES.PADDING_S,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent'
+  },
+  activeTabButton: {
+    borderBottomColor: '#4e9af1'
+  },
+  tabButtonText: {
+    fontSize: SIZES.BODY,
+    fontWeight: '500',
+    color: '#666'
+  },
+  activeTabText: {
+    color: '#4e9af1'
+  },
   listContent: {
-    paddingBottom: 20
+    paddingBottom: SIZES.PADDING_L
   },
   vendorCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: SIZES.RADIUS_L,
+    padding: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_M,
     flexDirection: 'row',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2
+    ...getShadowStyles(2)
   },
   vendorImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
+    width: scale(80),
+    height: scale(80),
+    borderRadius: SIZES.RADIUS_S,
     overflow: 'hidden',
     backgroundColor: '#f0f8ff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12
+    marginRight: SIZES.PADDING_S
   },
   vendorImage: {
-    width: 60,
-    height: 60
+    width: scale(60),
+    height: scale(60)
   },
   vendorInfo: {
     flex: 1
   },
   vendorName: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
     color: '#333'
   },
   vendorAddress: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
-    marginBottom: 12
+    marginBottom: SIZES.PADDING_S
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -152,9 +228,9 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
+    paddingVertical: SIZES.PADDING_XS,
+    paddingHorizontal: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
     alignItems: 'center',
     flex: 1,
     marginHorizontal: 2
@@ -165,27 +241,27 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: '#fff',
     fontWeight: '500',
-    fontSize: 14
+    fontSize: SIZES.CAPTION
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f5f7fa'
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 16,
+    marginTop: SIZES.PADDING_S,
+    fontSize: SIZES.BODY,
     color: '#666'
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100
+    paddingBottom: verticalScale(100)
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     color: '#666',
     textAlign: 'center'
   }

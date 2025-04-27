@@ -11,11 +11,15 @@ import {
   Image,
   Modal,
   Platform,
-  SafeAreaView
+  SafeAreaView,
+  StatusBar
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as localData from '../../services/localData';
 import { useAuth } from '../../contexts/AuthContext';
+
+// Import responsive utility functions
+import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 // Get product image from base64 or default
 const getProductImage = (product) => {
@@ -304,6 +308,9 @@ const OrderScreen = () => {
             <Text style={styles.totalValue}>₹{totalPrice.toFixed(2)}</Text>
           </View>
         </View>
+        
+        {/* Add some bottom padding to ensure the content isn't hidden behind the bottom bar */}
+        <View style={{ height: SIZES.PADDING_XL * 3 }} />
       </ScrollView>
       
       <View style={styles.bottomBar}>
@@ -331,20 +338,21 @@ const OrderScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f5f7fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f5f7fa',
   },
   header: {
-    padding: 16,
+    padding: SIZES.PADDING_M,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
@@ -353,179 +361,160 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    marginHorizontal: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_M,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_L,
+    ...getShadowStyles(2),
   },
   vendorIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: scale(50),
+    height: scale(50),
+    borderRadius: scale(25),
     backgroundColor: '#e3f2fd',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: SIZES.PADDING_M,
   },
   vendorIcon: {
-    fontSize: 24,
+    fontSize: SIZES.TITLE,
   },
   vendorInfo: {
     flex: 1,
   },
   vendorName: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   vendorBadge: {
     backgroundColor: '#e8f5e9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
+    paddingHorizontal: SIZES.PADDING_S,
+    paddingVertical: SIZES.PADDING_XS,
+    borderRadius: SIZES.RADIUS_ROUND,
     alignSelf: 'flex-start',
   },
   vendorBadgeText: {
-    fontSize: 12,
+    fontSize: SIZES.CAPTION,
     color: '#2e7d32',
     fontWeight: '500',
   },
   section: {
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    marginHorizontal: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_M,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_L,
+    ...getShadowStyles(2),
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
   },
   orderItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: SIZES.PADDING_S,
   },
   productImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    marginRight: 12,
+    width: scale(60),
+    height: scale(60),
+    borderRadius: SIZES.RADIUS_S,
+    backgroundColor: '#f0f8ff',
+    marginRight: SIZES.PADDING_S,
   },
   productInfo: {
     flex: 1,
   },
   productName: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   productPrice: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
   },
   itemTotal: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
   },
   itemSeparator: {
     height: 1,
     backgroundColor: '#f0f0f0',
+    marginVertical: SIZES.PADDING_XS,
   },
   deliveryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SIZES.PADDING_M,
     backgroundColor: '#f8f8f8',
-    padding: 16,
-    borderRadius: 12,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
   },
   deliveryIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     backgroundColor: '#e3f2fd',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: SIZES.PADDING_M,
   },
   deliveryIcon: {
-    fontSize: 20,
+    fontSize: SIZES.SUBTITLE,
   },
   deliveryInfo: {
     flex: 1,
   },
   deliveryLabel: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   deliveryValue: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
   },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: SIZES.PADDING_S,
   },
   dateButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: scale(36),
+    height: scale(36),
+    borderRadius: scale(18),
     backgroundColor: '#4e9af1',
     justifyContent: 'center',
     alignItems: 'center',
   },
   dateButtonText: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#fff',
   },
   selectedDate: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: SIZES.PADDING_S,
     alignItems: 'center',
   },
   selectedDateText: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
   },
   deliveryTimeTitle: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 12,
+    marginBottom: SIZES.PADDING_S,
   },
   timeSlotContainer: {
     flexDirection: 'column',
@@ -534,9 +523,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f8f8',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
+    marginBottom: SIZES.PADDING_S,
   },
   selectedTimeSlot: {
     backgroundColor: '#e3f2fd',
@@ -544,20 +533,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   timeSlotIcon: {
-    fontSize: 20,
-    marginRight: 16,
+    fontSize: SIZES.SUBTITLE,
+    marginRight: SIZES.PADDING_M,
   },
   timeSlotLabel: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
-    width: 100,
+    width: scale(100),
   },
   selectedTimeSlotLabel: {
     color: '#4e9af1',
   },
   timeSlotTime: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
   },
   selectedTimeSlotTime: {
@@ -567,8 +556,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f8f8',
-    padding: 16,
-    borderRadius: 12,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
     borderWidth: 1,
     borderColor: 'transparent',
   },
@@ -577,34 +566,34 @@ const styles = StyleSheet.create({
     borderColor: '#4e9af1',
   },
   paymentIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     backgroundColor: '#e3f2fd',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: SIZES.PADDING_M,
   },
   paymentIcon: {
-    fontSize: 20,
+    fontSize: SIZES.SUBTITLE,
   },
   paymentInfo: {
     flex: 1,
   },
   paymentLabel: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: SIZES.PADDING_XS,
   },
   paymentDesc: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
   },
   paymentCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: scale(24),
+    height: scale(24),
+    borderRadius: scale(12),
     borderWidth: 2,
     borderColor: '#ddd',
     justifyContent: 'center',
@@ -621,34 +610,34 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: SIZES.PADDING_S,
   },
   priceLabel: {
-    fontSize: 15,
+    fontSize: SIZES.BODY,
     color: '#666',
   },
   priceValue: {
-    fontSize: 15,
+    fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
   },
   divider: {
     height: 1,
     backgroundColor: '#eee',
-    marginVertical: 12,
+    marginVertical: SIZES.PADDING_S,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: SIZES.PADDING_XS,
   },
   totalLabel: {
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
     color: '#333',
   },
   totalValue: {
-    fontSize: 18,
+    fontSize: SIZES.TITLE,
     fontWeight: 'bold',
     color: '#4e9af1',
   },
@@ -656,46 +645,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: SIZES.PADDING_M,
+    paddingVertical: SIZES.PADDING_S,
+    paddingBottom: Platform.OS === 'ios' ? SIZES.PADDING_L : SIZES.PADDING_M,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    ...getShadowStyles(5),
   },
   priceContainer: {
     flex: 1,
   },
   bottomTotalLabel: {
-    fontSize: 14,
+    fontSize: SIZES.CAPTION,
     color: '#666',
   },
   bottomTotalValue: {
-    fontSize: 18,
+    fontSize: SIZES.SUBTITLE,
     fontWeight: 'bold',
     color: '#333',
   },
   placeOrderButton: {
     backgroundColor: '#4e9af1',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    minWidth: 150,
+    paddingVertical: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_L,
+    borderRadius: SIZES.RADIUS_M,
+    minHeight: SIZES.BUTTON_HEIGHT,
+    minWidth: scale(150),
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeOrderButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: SIZES.BODY,
     fontWeight: 'bold',
   },
 });
