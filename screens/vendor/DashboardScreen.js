@@ -15,7 +15,7 @@ import {
   Animated
 } from 'react-native';
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
 
@@ -81,6 +81,10 @@ const DashboardScreen = () => {
     await logout();
   };
 
+  const navigateToOrderDetail = (orderId) => {
+    navigation.navigate('OrderManagementTab', { orderId });
+  };
+
   const renderOrderItem = ({ item }) => {
     // Format date
     const orderDate = item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A';
@@ -99,7 +103,8 @@ const DashboardScreen = () => {
         <View style={styles.orderActions}>
           <TouchableOpacity 
             style={styles.orderActionButton}
-            onPress={() => navigation.navigate('OrderManagementScreen', { orderId: item.order_id })}
+            onPress={() => navigateToOrderDetail(item.order_id)}
+            activeOpacity={0.7}
           >
             <Text style={styles.orderActionButtonText}>Manage</Text>
           </TouchableOpacity>
@@ -149,33 +154,54 @@ const DashboardScreen = () => {
           </View>
           <TouchableOpacity 
             style={styles.logoContainer}
-            onPress={() => navigation.navigate('ProfileScreen')}
+            onPress={() => navigation.navigate('ProfileTab')}
+            activeOpacity={0.7}
           >
-            <Image 
-              source={require('../../assets/milk-icon.png')} 
-              style={styles.logo} 
-              resizeMode="contain"
-            />
+            {user?.profile_info?.custom_avatar_base64 ? (
+              <Image 
+                source={{ uri: `data:image/jpeg;base64,${user.profile_info.custom_avatar_base64}` }} 
+                style={styles.logo}
+                resizeMode="cover"
+              />
+            ) : (
+              <Image 
+                source={require('../../assets/milk-icon.png')} 
+                style={styles.logo} 
+                resizeMode="contain"
+              />
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('ProductManagementTab')}
+            activeOpacity={0.8}
+          >
             <Text style={styles.statValue}>{stats.totalProducts}</Text>
             <Text style={styles.statLabel}>Products</Text>
-          </View>
+          </TouchableOpacity>
         
-          <View style={styles.statCard}>
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('OrderManagementTab')}
+            activeOpacity={0.8}
+          >
             <Text style={styles.statValue}>{stats.pendingOrders}</Text>
             <Text style={styles.statLabel}>Pending Orders</Text>
-          </View>
+          </TouchableOpacity>
         
-          <View style={styles.statCard}>
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('OrderManagementTab')}
+            activeOpacity={0.8}
+          >
             <Text style={styles.statValue}>{stats.totalOrders}</Text>
             <Text style={styles.statLabel}>Total Orders</Text>
-          </View>
+          </TouchableOpacity>
         
           <View style={styles.statCard}>
             <Text style={styles.statValue}>₹{stats.revenue.toFixed(2)}</Text>
@@ -186,14 +212,16 @@ const DashboardScreen = () => {
         <View style={styles.actionsContainer}>
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => navigation.navigate('ProductManagementScreen')}
+            onPress={() => navigation.navigate('ProductManagementTab')}
+            activeOpacity={0.8}
           >
             <Text style={styles.actionButtonText}>Manage Products</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => navigation.navigate('OrderManagementScreen')}
+            onPress={() => navigation.navigate('OrderManagementTab')}
+            activeOpacity={0.8}
           >
             <Text style={styles.actionButtonText}>Manage Orders</Text>
           </TouchableOpacity>
@@ -204,10 +232,10 @@ const DashboardScreen = () => {
           
           {orders.length > 0 ? (
             <FlatList
-              data={orders.slice(0, 5)} // Show only the 5 most recent orders
+              data={orders.slice(0, 5)}
               renderItem={renderOrderItem}
               keyExtractor={item => item.order_id}
-              scrollEnabled={false} // Disable scrolling as it's inside a ScrollView
+              scrollEnabled={false}
               contentContainerStyle={styles.ordersList}
             />
           ) : (
@@ -219,7 +247,8 @@ const DashboardScreen = () => {
           {orders.length > 5 && (
             <TouchableOpacity 
               style={styles.viewAllButton}
-              onPress={() => navigation.navigate('OrderManagementScreen')}
+              onPress={() => navigation.navigate('OrderManagementTab')}
+              activeOpacity={0.8}
             >
               <Text style={styles.viewAllButtonText}>View All Orders</Text>
             </TouchableOpacity>

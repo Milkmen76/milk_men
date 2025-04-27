@@ -64,9 +64,28 @@ const OrderManagementScreen = () => {
   // Animation values
   const modalAnimation = useRef(new Animated.Value(0)).current;
 
+  // Main data loading effect
   useEffect(() => {
     loadData();
   }, [user]);
+
+  // Check for orderId in route params when orders are loaded
+  useEffect(() => {
+    if (!loading && orders.length > 0 && route.params?.orderId) {
+      console.log('Received orderId:', route.params.orderId);
+      const orderToShow = orders.find(order => order.order_id === route.params.orderId);
+      
+      if (orderToShow) {
+        console.log('Found order, showing details', orderToShow);
+        handleViewOrderDetails(orderToShow);
+        
+        // Clear the parameter after handling it
+        navigation.setParams({ orderId: undefined });
+      } else {
+        console.log('Order not found:', route.params.orderId);
+      }
+    }
+  }, [orders, loading, route.params?.orderId]);
 
   const loadData = async () => {
     if (!user) return;
