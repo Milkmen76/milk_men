@@ -676,12 +676,15 @@ const styles = StyleSheet.create({
   },
   statusOptions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginHorizontal: -SIZES.PADDING_XS,
   },
   statusOption: {
-    paddingVertical: SIZES.PADDING_XS,
+    paddingVertical: SIZES.PADDING_S,
     paddingHorizontal: SIZES.PADDING_M,
     borderRadius: SIZES.RADIUS_S,
-    marginRight: SIZES.PADDING_S,
+    margin: SIZES.PADDING_XS,
     opacity: 0.8,
   },
   currentStatusOption: {

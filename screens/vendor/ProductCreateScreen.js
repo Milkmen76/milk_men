@@ -16,15 +16,17 @@ import {
 } from 'react-native';
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
-import { launchImageLibrary } from 'react-native-image-picker';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
+import * as FileSystem from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
 
 const ProductCreateScreen = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
   const [productData, setProductData] = useState({
     name: '',
     description: '',
@@ -63,32 +65,78 @@ const ProductCreateScreen = () => {
     });
   };
 
-  const selectImage = () => {
-    const options = {
-      mediaType: 'photo',
-      includeBase64: true,
-      maxHeight: 800,
-      maxWidth: 800,
-      quality: 0.7,
-    };
-
-    launchImageLibrary(options, (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled image picker');
-      } else if (response.errorCode) {
-        console.log('ImagePicker Error: ', response.errorMessage);
-        Alert.alert('Error', 'An error occurred while selecting the image');
-      } else if (response.assets && response.assets.length > 0) {
-        const source = { uri: response.assets[0].uri };
-        setImageUri(source.uri);
-        setLocalImage({
-          uri: response.assets[0].uri,
-          type: response.assets[0].type,
-          name: response.assets[0].fileName || 'product_image.jpg',
-          base64: response.assets[0].base64
-        });
+  const selectImage = async () => {
+    try {
+      setImageLoading(true);
+      
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'You need to grant permission to access your photos');
+        return;
       }
-    });
+      
+      try {
+        // Use a completely different approach without any configuration options at all
+        console.log('Launching picker without config options');
+        const pickerResult = await ImagePicker.launchImageLibraryAsync();
+        
+        if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+          const asset = pickerResult.assets[0];
+          console.log('Image selected, URI:', asset.uri);
+          
+          // Now manually read the image file to get base64
+          console.log('Reading file from URI:', asset.uri);
+          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: FileSystem.EncodingType.Base64
+          });
+          
+          console.log('Read base64 data, length:', base64.length);
+          
+          // Set the image data in state
+          setImageUri(asset.uri);
+          setLocalImage({
+            uri: asset.uri,
+            type: 'image/jpeg',
+            name: 'product_image.jpg',
+            base64: base64
+          });
+          
+          console.log('Image data set successfully');
+        } else {
+          console.log('Image selection canceled');
+        }
+      } catch (innerError) {
+        console.error('Inner image picker error:', innerError);
+        
+        // Try a third attempt with direct construction of options object
+        try {
+          console.log('Trying with direct object construction');
+          // Pass empty object to avoid any issues
+          const lastResult = await ImagePicker.launchImageLibraryAsync({});
+          
+          if (!lastResult.canceled && lastResult.assets && lastResult.assets.length > 0) {
+            const asset = lastResult.assets[0];
+            console.log('Final attempt succeeded, URI:', asset.uri);
+            
+            // Set the image URI only - we'll handle base64 later
+            setImageUri(asset.uri);
+            
+            // We'll get base64 during the save
+            Alert.alert('Success', 'Image selected. Base64 data will be generated when saving.');
+          }
+        } catch (finalError) {
+          console.error('Final attempt failed:', finalError);
+          Alert.alert('Error', 'All image selection attempts failed. Please try another approach.');
+        }
+      }
+    } catch (error) {
+      console.error('Outer image picker error:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    } finally {
+      setImageLoading(false);
+    }
   };
 
   const validateForm = () => {
@@ -108,7 +156,7 @@ const ProductCreateScreen = () => {
       Alert.alert('Invalid Stock', 'Please enter valid stock quantity');
       return false;
     }
-    if (!imageUri) {
+    if (!imageUri && !localImage?.base64) {
       Alert.alert('Missing Image', 'Please select a product image');
       return false;
     }
@@ -126,11 +174,25 @@ const ProductCreateScreen = () => {
     setLoading(true);
     
     try {
-      // Save image to local storage or cloud (In a real app)
-      // For this demo, we'll use a filename convention and store the path
-      const imageName = `product_${Date.now()}.jpg`;
+      console.log('Creating product with image data...');
       
-      // Create product in local database
+      let base64Data = localImage?.base64;
+      
+      // If we have an image URI but no base64 data, try to read it now
+      if (imageUri && !base64Data) {
+        try {
+          console.log('Reading base64 data from URI before saving');
+          base64Data = await FileSystem.readAsStringAsync(imageUri, {
+            encoding: FileSystem.EncodingType.Base64
+          });
+          console.log('Successfully read base64 data, length:', base64Data.length);
+        } catch (readError) {
+          console.error('Error reading base64 from URI:', readError);
+          Alert.alert('Warning', 'Could not read image data. Product will be saved without an image.');
+        }
+      }
+      
+      // Prepare product data
       const newProductData = {
         name: productData.name,
         description: productData.description || 'Fresh dairy product',
@@ -139,30 +201,28 @@ const ProductCreateScreen = () => {
         stock: Number(productData.stock),
         unit: productData.unit,
         vendor_id: user.id,
-        image: imageName,
-        image_base64: localImage.base64, // Store base64 for demo
+        image: `product_${Date.now()}.jpg`,
+        image_base64: base64Data || '',
         created_at: new Date().toISOString(),
       };
       
+      console.log('Sending product data to localData.addProduct, has image_base64:', !!newProductData.image_base64);
+      
       const result = await localData.addProduct(newProductData);
       
-      if (result.success) {
+      if (result) {
+        console.log('Product created successfully with ID:', result.product_id);
         Alert.alert(
           'Success', 
           'Product created successfully',
-          [
-            { 
-              text: 'OK', 
-              onPress: () => navigation.goBack() 
-            }
-          ]
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
       } else {
-        Alert.alert('Error', result.error || 'Failed to create product');
+        throw new Error('Failed to create product');
       }
     } catch (error) {
       console.error('Create product error:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
+      Alert.alert('Error', error.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -232,7 +292,7 @@ const ProductCreateScreen = () => {
             <Text style={styles.title}>Add New Product</Text>
             
             <View style={styles.imageSection}>
-              <TouchableOpacity style={styles.imagePickerButton} onPress={selectImage}>
+              <TouchableOpacity style={styles.imagePickerButton} onPress={selectImage} disabled={imageLoading}>
                 {imageUri ? (
                   <Image 
                     source={{ uri: imageUri }}
@@ -240,15 +300,27 @@ const ProductCreateScreen = () => {
                   />
                 ) : (
                   <View style={styles.imagePlaceholder}>
-                    <Text style={styles.imagePlaceholderIcon}>📷</Text>
-                    <Text style={styles.imagePlaceholderText}>
-                      Tap to select product image
-                    </Text>
+                    {imageLoading ? (
+                      <ActivityIndicator size="large" color="#4e9af1" />
+                    ) : (
+                      <>
+                        <Text style={styles.imagePlaceholderIcon}>📷</Text>
+                        <Text style={styles.imagePlaceholderText}>
+                          Tap to upload product image
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                )}
+                
+                {imageUri && imageLoading && (
+                  <View style={styles.imageLoadingOverlay}>
+                    <ActivityIndicator size="large" color="#ffffff" />
                   </View>
                 )}
               </TouchableOpacity>
               
-              {imageUri && (
+              {imageUri && !imageLoading && (
                 <TouchableOpacity style={styles.changeImageButton} onPress={selectImage}>
                   <Text style={styles.changeImageText}>Change Image</Text>
                 </TouchableOpacity>
@@ -374,17 +446,27 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: SIZES.PADDING_M
+    padding: SIZES.PADDING_M,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e3f2fd',
   },
   imagePlaceholderText: {
     fontSize: SIZES.BODY,
-    color: '#666',
+    color: '#4e9af1',
     textAlign: 'center',
-    marginBottom: SIZES.PADDING_S
+    marginTop: SIZES.PADDING_S,
+    fontWeight: '500',
   },
   imagePlaceholderIcon: {
     fontSize: scale(40),
-    color: '#999'
+    color: '#4e9af1'
+  },
+  imageLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   changeImageButton: {
     marginTop: SIZES.PADDING_XS,

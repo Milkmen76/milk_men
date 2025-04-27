@@ -517,15 +517,18 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.PADDING_S,
   },
   timeSlotContainer: {
-    flexDirection: 'column',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SIZES.PADDING_S,
   },
   timeSlot: {
-    flexDirection: 'row',
+    flex: 1,
+    flexDirection: 'column',
     alignItems: 'center',
     backgroundColor: '#f8f8f8',
-    padding: SIZES.PADDING_M,
+    padding: SIZES.PADDING_S,
     borderRadius: SIZES.RADIUS_M,
-    marginBottom: SIZES.PADDING_S,
+    marginHorizontal: SIZES.PADDING_XS,
   },
   selectedTimeSlot: {
     backgroundColor: '#e3f2fd',
@@ -534,13 +537,14 @@ const styles = StyleSheet.create({
   },
   timeSlotIcon: {
     fontSize: SIZES.SUBTITLE,
-    marginRight: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_XS,
   },
   timeSlotLabel: {
     fontSize: SIZES.BODY,
     fontWeight: '500',
     color: '#333',
-    width: scale(100),
+    textAlign: 'center',
+    marginBottom: SIZES.PADDING_XS,
   },
   selectedTimeSlotLabel: {
     color: '#4e9af1',

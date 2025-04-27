@@ -725,33 +725,27 @@ const OrderManagementScreen = () => {
         ];
     
     return (
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.filtersScrollView}
-      >
-        <View style={styles.filtersContainer}>
-          {statusOptions.map(option => (
-            <TouchableOpacity
-              key={option.value}
+      <View style={styles.filtersContainer}>
+        {statusOptions.map(option => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.filterButton,
+              selectedFilter === option.value && styles.activeFilterButton
+            ]}
+            onPress={() => setSelectedFilter(option.value)}
+          >
+            <Text
               style={[
-                styles.filterButton,
-                selectedFilter === option.value && styles.activeFilterButton
+                styles.filterButtonText,
+                selectedFilter === option.value && styles.activeFilterText
               ]}
-              onPress={() => setSelectedFilter(option.value)}
             >
-              <Text
-                style={[
-                  styles.filterButtonText,
-                  selectedFilter === option.value && styles.activeFilterText
-                ]}
-              >
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     );
   };
 
@@ -1003,6 +997,8 @@ const styles = StyleSheet.create({
   },
   filtersContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     paddingVertical: 12,
     paddingHorizontal: 10
   },
@@ -1010,7 +1006,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
-    marginHorizontal: 4,
+    margin: 4,
     backgroundColor: '#f0f0f0'
   },
   activeFilterButton: {
