@@ -18,6 +18,19 @@ import * as localData from '../../services/localData';
 // Import responsive utility functions
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
+// Helper function to get vendor image
+const getVendorImage = (vendor) => {
+  console.log(`Getting image for vendor: ${vendor.profile_info?.business_name || 'Unknown'}`);
+  
+  if (vendor.profile_info?.logo_base64) {
+    console.log(`Using base64 logo, data length: ${vendor.profile_info.logo_base64.length}`);
+    return { uri: `data:image/jpeg;base64,${vendor.profile_info.logo_base64}` };
+  }
+  
+  console.log(`Using fallback logo`);
+  return require('../../assets/milk-icon.png');
+};
+
 const VendorListScreen = () => {
   const navigation = useNavigation();
   const [vendors, setVendors] = useState([]);
@@ -73,7 +86,7 @@ const VendorListScreen = () => {
     >
       <View style={styles.vendorImageContainer}>
         <Image 
-          source={require('../../assets/milk-icon.png')}
+          source={getVendorImage(item)}
           style={styles.vendorImage}
           resizeMode="contain"
         />

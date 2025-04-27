@@ -23,10 +23,15 @@ const CARD_WIDTH = width * 0.9;
 
 // Get product image from base64 or default
 const getProductImage = (product) => {
+  if (!product) {
+    console.log('Product object is undefined or null');
+    return require('../../assets/milk-icon.png');
+  }
+  
   // Log image details for debugging
   console.log(`Getting image for product: ${product.name}, Image: ${product.image}`);
   
-  if (product.image_base64) {
+  if (product.image_base64 && product.image_base64.length > 100) {
     console.log(`Using base64 image for ${product.name}, data length: ${product.image_base64.length}`);
     return { uri: `data:image/jpeg;base64,${product.image_base64}` };
   }
@@ -152,9 +157,15 @@ const ProductListScreen = () => {
 
   // Add this function to get vendor avatar
   const getVendorAvatar = () => {
-    if (!vendor) return require('../../assets/milk-icon.png');
+    if (!vendor) {
+      console.log('Vendor object is undefined or null');
+      return require('../../assets/milk-icon.png');
+    }
     
-    if (vendor.profile_info?.custom_avatar_base64) {
+    console.log(`Getting avatar for vendor: ${vendor.profile_info?.business_name || vendor.name || 'Unknown'}`);
+    
+    if (vendor.profile_info?.custom_avatar_base64 && vendor.profile_info.custom_avatar_base64.length > 100) {
+      console.log(`Using custom avatar base64, data length: ${vendor.profile_info.custom_avatar_base64.length}`);
       return { uri: `data:image/jpeg;base64,${vendor.profile_info.custom_avatar_base64}` };
     }
     
@@ -167,16 +178,31 @@ const ProductListScreen = () => {
       'favicon.png': require('../../assets/favicon.png'),
     };
     
-    return avatarImages[vendor.profile_info?.avatar] || require('../../assets/milk-icon.png');
+    if (vendor.profile_info?.avatar && avatarImages[vendor.profile_info.avatar]) {
+      console.log(`Using predefined avatar: ${vendor.profile_info.avatar}`);
+      return avatarImages[vendor.profile_info.avatar];
+    }
+    
+    console.log('Using fallback avatar');
+    return require('../../assets/milk-icon.png');
   };
   
   // Add this function to get business logo
   const getBusinessLogo = () => {
-    if (!vendor || !vendor.profile_info?.logo_base64) {
+    if (!vendor) {
+      console.log('Vendor object is undefined or null');
       return require('../../assets/milk-icon.png');
     }
     
-    return { uri: `data:image/jpeg;base64,${vendor.profile_info.logo_base64}` };
+    console.log(`Getting business logo for: ${vendor.profile_info?.business_name || vendor.name || 'Unknown'}`);
+    
+    if (vendor.profile_info?.logo_base64 && vendor.profile_info.logo_base64.length > 100) {
+      console.log(`Using business logo base64, data length: ${vendor.profile_info.logo_base64.length}`);
+      return { uri: `data:image/jpeg;base64,${vendor.profile_info.logo_base64}` };
+    }
+    
+    console.log('Using fallback business logo');
+    return require('../../assets/milk-icon.png');
   };
 
   const renderProductItem = ({ item }) => {

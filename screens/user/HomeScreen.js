@@ -24,14 +24,25 @@ const windowWidth = Dimensions.get('window').width;
 
 // Helper function to get vendor image
 const getVendorImage = (vendor) => {
-  console.log(`Getting image for vendor: ${vendor.businessName}`);
+  if (!vendor) {
+    console.log('Vendor object is undefined or null');
+    return require('../../assets/milk-icon.png');
+  }
   
-  if (vendor.logo_base64) {
-    console.log(`Using base64 logo for ${vendor.businessName}, data length: ${vendor.logo_base64.length}`);
+  console.log(`Getting image for vendor: ${vendor.businessName || vendor.name || 'Unknown'}`);
+  
+  if (vendor.logo_base64 && vendor.logo_base64.length > 100) {
+    console.log(`Using base64 logo for ${vendor.businessName || 'Unknown'}, data length: ${vendor.logo_base64.length}`);
     return { uri: `data:image/jpeg;base64,${vendor.logo_base64}` };
   }
   
-  console.log(`Using fallback logo for ${vendor.businessName}`);
+  // Check if there's a profile_info object with logo_base64
+  if (vendor.profile_info?.logo_base64 && vendor.profile_info.logo_base64.length > 100) {
+    console.log(`Using profile_info logo for ${vendor.businessName || 'Unknown'}, data length: ${vendor.profile_info.logo_base64.length}`);
+    return { uri: `data:image/jpeg;base64,${vendor.profile_info.logo_base64}` };
+  }
+  
+  console.log(`Using fallback logo for ${vendor.businessName || 'Unknown'}`);
   return require('../../assets/milk-icon.png');
 };
 
@@ -59,15 +70,26 @@ const imageMap = {
 
 // Get product image from base64 or default
 const getProductImage = (product) => {
-  if (!product) return require('../../assets/milk-icon.png');
+  if (!product) {
+    console.log('Product object is undefined or null');
+    return require('../../assets/milk-icon.png');
+  }
   
   console.log(`Getting image for product: ${product.name || 'unknown'}`);
   
-  if (product.image_base64) {
-    console.log(`Using base64 image for product, data length: ${product.image_base64.length}`);
+  if (product.image_base64 && product.image_base64.length > 100) {
+    console.log(`Using base64 image for product ${product.name}, data length: ${product.image_base64.length}`);
     return { uri: `data:image/jpeg;base64,${product.image_base64}` };
   }
-  return imageMap[product.image] || require('../../assets/milk-icon.png');
+  
+  // Check if the product has an image name that maps to a predefined image
+  if (product.image && imageMap[product.image]) {
+    console.log(`Using mapped image for ${product.name}: ${product.image}`);
+    return imageMap[product.image];
+  }
+  
+  console.log(`Using fallback image for ${product.name || 'unknown product'}`);
+  return require('../../assets/milk-icon.png');
 };
 
 const HomeScreen = () => {
@@ -107,7 +129,15 @@ const HomeScreen = () => {
       // Enhance vendor data with additional info
       const enhancedVendors = approvedVendors.map(vendor => {
         console.log(`Processing vendor: ${vendor.name}`);
-        console.log(`Vendor has logo: ${!!vendor.profile_info?.logo_base64}`);
+        
+        // Check if vendor has a logo in profile_info
+        const hasLogo = vendor.profile_info?.logo_base64 && vendor.profile_info.logo_base64.length > 100;
+        console.log(`Vendor ${vendor.name} has logo: ${hasLogo}`);
+        
+        // Log logo details if present
+        if (hasLogo) {
+          console.log(`Logo data length for ${vendor.name}: ${vendor.profile_info.logo_base64.length}`);
+        }
         
         return {
           id: vendor.id,
