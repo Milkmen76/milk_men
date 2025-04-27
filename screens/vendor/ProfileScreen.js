@@ -55,7 +55,6 @@ const ProfileScreen = () => {
   const [showLogoModal, setShowLogoModal] = useState(false);
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' or 'business'
   const [fadeAnim] = useState(new Animated.Value(1));
-  const [availableAvatars, setAvailableAvatars] = useState([]);
   
   const [businessStats, setBusinessStats] = useState({
     orders: 0,
@@ -64,11 +63,17 @@ const ProfileScreen = () => {
     revenue: 0,
   });
 
+  const availableAvatars = [
+    { value: 'milk-icon.png', label: 'Milk Icon' },
+    { value: 'icon.png', label: 'App Icon' },
+    { value: 'splash-icon.png', label: 'Splash Icon' },
+    { value: 'adaptive-icon.png', label: 'Adaptive Icon' },
+    { value: 'favicon.png', label: 'Favicon' },
+  ];
+
   useEffect(() => {
     loadUserData();
     loadBusinessStats();
-    // Load available avatars
-    setAvailableAvatars(localData.getAvailableAvatars());
   }, [user]);
 
   useEffect(() => {
@@ -223,60 +228,29 @@ const ProfileScreen = () => {
         return;
       }
       
-      // Launch image picker with correct configuration
+      // Fix the ImagePicker configuration - the problem was with mediaTypes format
       const result = await ImagePicker.launchImageLibraryAsync({
+        // For older Expo versions, use an array of strings or undefined
+        // For newer versions, use the enum directly
+        // Try both approaches to handle different Expo versions
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
         base64: true,
       });
       
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedAsset = result.assets[0];
-        
-        // Check if base64 data is available
-        if (selectedAsset.base64) {
-          if (forLogo) {
-            setLogoBase64(selectedAsset.base64);
-            setShowLogoModal(false);
-          } else {
-            setCustomAvatar(selectedAsset.base64);
-            setShowAvatarModal(false);
-            
-            // If not in editing mode, save immediately like in user profile
-            if (!editing) {
-              try {
-                setLoading(true);
-                const success = await localData.updateUserAvatar(user.id, null, selectedAsset.base64);
-                
-                if (success) {
-                  // Update local context
-                  const updateData = {
-                    profile_info: {
-                      ...(user.profile_info || {}),
-                      custom_avatar_base64: selectedAsset.base64
-                    }
-                  };
-                  await updateUserData(updateData);
-                  Alert.alert('Success', 'Profile picture updated successfully');
-                } else {
-                  Alert.alert('Error', 'Failed to update profile picture');
-                }
-              } catch (error) {
-                console.error('Error updating profile picture:', error);
-                Alert.alert('Error', 'Failed to update profile picture');
-              } finally {
-                setLoading(false);
-              }
-            }
-          }
+      if (!result.canceled && result.assets && result.assets[0]) {
+        if (forLogo) {
+          setLogoBase64(result.assets[0].base64);
+          setShowLogoModal(false);
         } else {
-          Alert.alert('Error', 'Could not get image data. Please try again.');
+          setCustomAvatar(result.assets[0].base64);
+          setShowAvatarModal(false);
         }
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image: ' + error.message);
+      console.error('Error selecting image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
     }
   };
 
@@ -288,160 +262,42 @@ const ProfileScreen = () => {
     setShowLogoModal(true);
   };
 
-  const handleSelectAvatar = async (avatarKey) => {
+  const handleSelectAvatar = (avatarKey) => {
     setSelectedAvatar(avatarKey);
+    setCustomAvatar(null);
     setShowAvatarModal(false);
-    
-    // If not in editing mode, save immediately like in user profile
-    if (!editing) {
-      try {
-        setLoading(true);
-        const success = await localData.updateUserAvatar(user.id, avatarKey);
-        
-        if (success) {
-          // Update local context
-          const updateData = {
-            profile_info: {
-              ...(user.profile_info || {}),
-              avatar: avatarKey
-            }
-          };
-          await updateUserData(updateData);
-          Alert.alert('Success', 'Avatar updated successfully');
-        } else {
-          Alert.alert('Error', 'Failed to update avatar');
-        }
-      } catch (error) {
-        console.error('Error updating avatar:', error);
-        Alert.alert('Error', 'Failed to update avatar');
-      } finally {
-        setLoading(false);
-      }
-    }
   };
 
   const renderAvatarItem = ({ item }) => (
     <TouchableOpacity
       style={[
-        styles.avatarOption,
-        selectedAvatar === item.value && styles.selectedAvatarOption
+        styles.avatarItem,
+        selectedAvatar === item.value && !customAvatar && styles.selectedAvatarItem
       ]}
       onPress={() => handleSelectAvatar(item.value)}
     >
-      <Image
-        source={avatarImages[item.value]}
-        style={styles.avatarOptionImage}
+      <Image 
+        source={avatarImages[item.value]} 
+        style={styles.avatarItemImage}
         resizeMode="contain"
       />
-      <Text style={styles.avatarOptionText}>{item.label}</Text>
+      <Text style={styles.avatarItemLabel}>{item.label}</Text>
     </TouchableOpacity>
   );
 
   const getAvatarSource = () => {
-    if (customAvatar || user?.profile_info?.custom_avatar_base64) {
-      return { uri: `data:image/jpeg;base64,${customAvatar || user?.profile_info?.custom_avatar_base64}` };
+    if (customAvatar) {
+      return { uri: `data:image/jpeg;base64,${customAvatar}` };
     }
     return avatarImages[selectedAvatar] || avatarImages['milk-icon.png'];
   };
 
   const getBusinessLogoSource = () => {
-    if (logoBase64 || user?.profile_info?.logo_base64) {
-      return { uri: `data:image/jpeg;base64,${logoBase64 || user?.profile_info?.logo_base64}` };
+    if (logoBase64) {
+      return { uri: `data:image/jpeg;base64,${logoBase64}` };
     }
-    return require('../../assets/milk-icon.png');
+    return null;
   };
-
-  // Create a new enhanced modal for profile picture options
-  const renderChangeProfileModal = () => (
-    <Modal
-      visible={showAvatarModal}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={() => setShowAvatarModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Change Profile Picture</Text>
-          
-          <TouchableOpacity 
-            style={styles.photoOption}
-            onPress={() => {
-              setShowAvatarModal(false);
-              setTimeout(() => {
-                pickImage(false);
-              }, 500);
-            }}
-          >
-            <View style={styles.photoIconContainer}>
-              <Text style={styles.photoIcon}>📷</Text>
-            </View>
-            <View style={styles.photoTextContainer}>
-              <Text style={styles.photoOptionTitle}>Upload from Gallery</Text>
-              <Text style={styles.photoOptionDesc}>Choose an image from your phone's gallery</Text>
-            </View>
-          </TouchableOpacity>
-          
-          <Text style={styles.avatarSectionTitle}>Choose from Avatars</Text>
-          
-          <FlatList
-            data={availableAvatars}
-            renderItem={renderAvatarItem}
-            keyExtractor={item => item.value}
-            numColumns={3}
-            contentContainerStyle={styles.avatarGrid}
-          />
-          
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setShowAvatarModal(false)}
-          >
-            <Text style={styles.closeButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  // Create a modal for business logo selection
-  const renderChangeLogoModal = () => (
-    <Modal
-      visible={showLogoModal}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={() => setShowLogoModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Change Business Logo</Text>
-          
-          <TouchableOpacity 
-            style={styles.photoOption}
-            onPress={() => {
-              setShowLogoModal(false);
-              setTimeout(() => {
-                pickImage(true);
-              }, 500);
-            }}
-          >
-            <View style={styles.photoIconContainer}>
-              <Text style={styles.photoIcon}>📷</Text>
-            </View>
-            <View style={styles.photoTextContainer}>
-              <Text style={styles.photoOptionTitle}>Upload from Gallery</Text>
-              <Text style={styles.photoOptionDesc}>Choose a logo from your phone's gallery</Text>
-            </View>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setShowLogoModal(false)}
-          >
-            <Text style={styles.closeButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
 
   const renderProfileTabContent = () => (
     <View style={styles.tabContent}>
@@ -715,8 +571,89 @@ const ProfileScreen = () => {
         </View>
       </ScrollView>
       
-      {renderChangeProfileModal()}
-      {renderChangeLogoModal()}
+      {/* Avatar Selection Modal */}
+      <Modal
+        visible={showAvatarModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAvatarModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Change Profile Picture</Text>
+            
+            <TouchableOpacity 
+              style={styles.photoPickerButton}
+              onPress={() => {
+                setShowAvatarModal(false);
+                setTimeout(() => pickImage(false), 500);
+              }}
+            >
+              <View style={styles.photoIconContainer}>
+                <Text style={styles.photoIcon}>📷</Text>
+              </View>
+              <View style={styles.photoTextContainer}>
+                <Text style={styles.photoOptionTitle}>Upload Photo</Text>
+                <Text style={styles.photoOptionDesc}>Choose an image from your gallery</Text>
+              </View>
+            </TouchableOpacity>
+            
+            <Text style={styles.avatarSectionTitle}>Or Select an Avatar</Text>
+            
+            <FlatList
+              data={availableAvatars}
+              renderItem={renderAvatarItem}
+              keyExtractor={item => item.value}
+              numColumns={3}
+              contentContainerStyle={styles.avatarGrid}
+            />
+            
+            <TouchableOpacity 
+              style={styles.closeModalButton}
+              onPress={() => setShowAvatarModal(false)}
+            >
+              <Text style={styles.closeModalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Logo Selection Modal */}
+      <Modal
+        visible={showLogoModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowLogoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Change Business Logo</Text>
+            
+            <TouchableOpacity 
+              style={styles.photoPickerButton}
+              onPress={() => {
+                setShowLogoModal(false);
+                setTimeout(() => pickImage(true), 500);
+              }}
+            >
+              <View style={styles.photoIconContainer}>
+                <Text style={styles.photoIcon}>📷</Text>
+              </View>
+              <View style={styles.photoTextContainer}>
+                <Text style={styles.photoOptionTitle}>Upload Logo</Text>
+                <Text style={styles.photoOptionDesc}>Choose an image from your gallery</Text>
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.closeModalButton}
+              onPress={() => setShowLogoModal(false)}
+            >
+              <Text style={styles.closeModalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1098,7 +1035,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#333',
   },
-  photoOption: {
+  photoPickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f0f8ff',
@@ -1144,7 +1081,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
   },
-  avatarOption: {
+  avatarItem: {
     width: '30%',
     margin: '1.5%',
     padding: 8,
@@ -1154,28 +1091,28 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     backgroundColor: '#f5f5f5',
   },
-  selectedAvatarOption: {
+  selectedAvatarItem: {
     borderColor: '#4e9af1',
     backgroundColor: '#e6f2ff',
   },
-  avatarOptionImage: {
+  avatarItemImage: {
     width: 50,
     height: 50,
     marginBottom: 8,
   },
-  avatarOptionText: {
+  avatarItemLabel: {
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
   },
-  closeButton: {
+  closeModalButton: {
     backgroundColor: '#4e9af1',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 16,
   },
-  closeButtonText: {
+  closeModalButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
