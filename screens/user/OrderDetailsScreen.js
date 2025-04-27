@@ -157,20 +157,105 @@ const OrderDetailsScreen = () => {
     if (!order) return;
     
     try {
-      const message = `Order #${order.order_id}\n` +
-        `Status: ${order.status.toUpperCase()}\n` +
-        `Ordered on: ${formatDate(order.created_at || order.date)}\n` +
-        `Total: ${formatCurrency(order.total)}\n\n` +
-        `Items: ${products.map(p => p.name).join(', ')}\n\n` +
-        `Delivery Address: ${order.delivery_address || 'Not specified'}\n` +
-        `Expected Delivery: ${formatDate(order.delivery_date)}`;
+      setLoading(true);
       
+      // Get vendor details
+      const vendorInfo = vendor || {};
+      
+      // Get product details with quantities
+      let productDetails = [];
+      let totalAmount = 0;
+      
+      if (Array.isArray(order.products)) {
+        const productPromises = order.products.map(async (productId, index) => {
+          const product = await localData.getProductById(productId);
+          if (product) {
+            const quantity = order.quantities ? order.quantities[index] : 1;
+            const amount = product.price * quantity;
+            totalAmount += amount;
+            
+            return {
+              name: product.name,
+              price: product.price,
+              quantity: quantity,
+              amount: amount
+            };
+          }
+          return null;
+        });
+        
+        productDetails = (await Promise.all(productPromises)).filter(p => p !== null);
+      }
+      
+      // Format date for invoice
+      const formatInvoiceDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      };
+      
+      // Check if order is from a subscription
+      let subscriptionDetails = null;
+      if (order.subscription_id) {
+        subscriptionDetails = await localData.getSubscriptionById(order.subscription_id);
+      }
+      
+      // Generate invoice text
+      const invoiceText = 
+        `INVOICE\n` +
+        `===================================\n\n` +
+        `Order #${order.order_id}\n` +
+        `Date: ${formatInvoiceDate(order.created_at || order.date)}\n` +
+        `Status: ${order.status.toUpperCase()}\n\n` +
+        
+        `VENDOR DETAILS\n` +
+        `===================================\n` +
+        `Name: ${vendorInfo?.profile_info?.business_name || vendorInfo?.name || 'N/A'}\n` +
+        `Address: ${vendorInfo?.profile_info?.address || 'N/A'}\n` +
+        `Contact: ${vendorInfo?.profile_info?.phone || vendorInfo?.phone_number || 'N/A'}\n\n` +
+        
+        `${subscriptionDetails ? 'SUBSCRIPTION DETAILS\n' + 
+        '===================================\n' +
+        `Subscription ID: ${subscriptionDetails.subscription_id}\n` +
+        `Type: ${subscriptionDetails.type}\n` +
+        `Period: ${formatInvoiceDate(subscriptionDetails.start_date)} to ${formatInvoiceDate(subscriptionDetails.end_date)}\n\n` : ''}` +
+        
+        `DELIVERY DETAILS\n` +
+        `===================================\n` +
+        `Address: ${order.delivery_address || user?.profile_info?.address || 'Not specified'}\n` +
+        `Date: ${formatInvoiceDate(order.delivery_date)}\n` +
+        `Time: ${order.delivery_time || 'Not specified'}\n\n` +
+        
+        `PRODUCT DETAILS\n` +
+        `===================================\n` +
+        productDetails.map(p => `${p.name} (${p.quantity} x ₹${p.price.toFixed(2)}) = ₹${p.amount.toFixed(2)}`).join('\n') +
+        `\n\n` +
+        
+        `PAYMENT DETAILS\n` +
+        `===================================\n` +
+        `Subtotal: ₹${totalAmount.toFixed(2)}\n` +
+        `Delivery Fee: ₹0.00\n` +
+        `Discount: ₹0.00\n` +
+        `Total Amount: ₹${totalAmount.toFixed(2)}\n\n` +
+        
+        `Thank you for your order!\n` +
+        `===================================\n` +
+        `${vendorInfo?.profile_info?.business_name || vendorInfo?.name || 'Milk Delivery'}\n`;
+      
+      // Share the invoice
       await Share.share({
-        message,
+        message: invoiceText,
         title: `Order Details #${order.order_id}`
       });
+      
     } catch (error) {
       console.error('Error sharing order:', error);
+      Alert.alert('Error', 'Failed to share order details');
+    } finally {
+      setLoading(false);
     }
   };
   

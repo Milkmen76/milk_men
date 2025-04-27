@@ -69,11 +69,24 @@ const getVendorImage = (vendor) => {
   return require('../../assets/milk-icon.png');
 };
 
+// Get product image from base64 or default
+const getProductImage = (product) => {
+  if (!product) {
+    return require('../../assets/milk-icon.png');
+  }
+  
+  if (product.image_base64 && product.image_base64.length > 100) {
+    return { uri: `data:image/jpeg;base64,${product.image_base64}` };
+  }
+  
+  return require('../../assets/milk-icon.png');
+};
+
 const SubscriptionScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { user } = useAuth();
-  const { vendorId } = route.params || {};
+  const { vendorId, subscriptionId } = route.params || {};
   
   const [vendor, setVendor] = useState(null);
   const [products, setProducts] = useState([]);
@@ -86,6 +99,15 @@ const SubscriptionScreen = () => {
   const [calendarMonth, setCalendarMonth] = useState('');
   const [showCalendar, setShowCalendar] = useState(false);
   const [processingSubscription, setProcessingSubscription] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedMilkType, setSelectedMilkType] = useState('regular');
+  // Vacation mode states
+  const [vacation, setVacation] = useState(false);
+  const [vacationStart, setVacationStart] = useState(new Date());
+  const [vacationEnd, setVacationEnd] = useState(new Date());
+  const [showVacationModal, setShowVacationModal] = useState(false);
+  const [subscriptionDetails, setSubscriptionDetails] = useState(null);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -108,6 +130,50 @@ const SubscriptionScreen = () => {
         // Fetch vendor's products
         const vendorProducts = await localData.getProductsByVendor(vendorId);
         setProducts(vendorProducts);
+        
+        // Set default selected product
+        if (vendorProducts && vendorProducts.length > 0) {
+          setSelectedProduct(vendorProducts[0]);
+        }
+        
+        // If we're viewing an existing subscription
+        if (subscriptionId) {
+          const subscription = await localData.getSubscriptionById(subscriptionId);
+          if (subscription) {
+            setSubscriptionDetails(subscription);
+            setSelectedType(subscription.type || 'weekly');
+            setStartDate(new Date(subscription.start_date));
+            setSelectedTimeSlot(subscription.delivery_time || timeSlots[0].id);
+            
+            if (subscription.preferred_day) {
+              const dayIndex = daysOfWeek.findIndex(d => d.name === subscription.preferred_day);
+              if (dayIndex !== -1) {
+                setSelectedDay(dayIndex);
+              }
+            }
+            
+            if (subscription.product_id && vendorProducts) {
+              const product = vendorProducts.find(p => p.product_id === subscription.product_id);
+              if (product) {
+                setSelectedProduct(product);
+              }
+            }
+            
+            setQuantity(subscription.quantity || 1);
+            setSelectedMilkType(subscription.milk_type || 'regular');
+            
+            // Check for vacation status
+            if (subscription.vacation_mode) {
+              setVacation(true);
+              if (subscription.vacation_start) {
+                setVacationStart(new Date(subscription.vacation_start));
+              }
+              if (subscription.vacation_end) {
+                setVacationEnd(new Date(subscription.vacation_end));
+              }
+            }
+          }
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -123,7 +189,7 @@ const SubscriptionScreen = () => {
     
     // Initialize calendar
     generateCalendarDates(startDate);
-  }, [vendorId]);
+  }, [vendorId, subscriptionId]);
   
   // Function to get tomorrow's date
   function getTomorrowDate() {
@@ -219,7 +285,7 @@ const SubscriptionScreen = () => {
       }
       
       // Create a transaction for the subscription
-      const price = calculateSubscriptionPrice(selectedType);
+      const price = calculateSubscriptionPrice();
       const transactionData = {
         user_id: user.id,
         vendor_id: vendorId,
@@ -261,9 +327,22 @@ const SubscriptionScreen = () => {
     }
   };
 
-  const calculateSubscriptionPrice = (type) => {
-    const option = subscriptionTypes.find(t => t.value === type);
-    return option ? option.price : 0;
+  const calculateSubscriptionPrice = () => {
+    const singleDeliveryPrice = calculateProductPrice();
+    let deliveryCount = calculateDeliveryCount();
+    
+    // Apply discount based on subscription type
+    let discount = 1.0; // No discount by default
+    
+    if (selectedType === 'weekly') {
+      discount = 0.95; // 5% discount for weekly
+    } else if (selectedType === 'monthly') {
+      discount = 0.9; // 10% discount for monthly
+    } else if (selectedType === 'daily') {
+      discount = 0.85; // 15% discount for daily
+    }
+    
+    return (singleDeliveryPrice * deliveryCount * discount).toFixed(2);
   };
 
   const handleDateSelect = (date) => {
@@ -334,6 +413,152 @@ const SubscriptionScreen = () => {
     );
   };
 
+  // Calculate product price for a single delivery
+  const calculateProductPrice = () => {
+    if (!selectedProduct) return 0;
+    
+    let basePrice = selectedProduct.price || 0;
+    
+    // Add price based on milk type
+    if (selectedMilkType === 'premium') {
+      basePrice *= 1.2; // 20% more for premium
+    } else if (selectedMilkType === 'organic') {
+      basePrice *= 1.5; // 50% more for organic
+    }
+    
+    return basePrice * quantity;
+  };
+  
+  // Calculate number of deliveries based on subscription type
+  const calculateDeliveryCount = () => {
+    switch (selectedType) {
+      case 'daily':
+        return 30; // 30 days
+      case 'weekly':
+        return 8; // 8 weeks
+      case 'monthly':
+        return 3; // 3 months
+      default:
+        return 1;
+    }
+  };
+
+  // Toggle vacation mode for existing subscription
+  const toggleVacationMode = async () => {
+    if (!subscriptionDetails) return;
+    
+    try {
+      setProcessingSubscription(true);
+      
+      const updatedSubscription = {
+        ...subscriptionDetails,
+        vacation_mode: !subscriptionDetails.vacation_mode,
+        vacation_start: vacationStart.toISOString(),
+        vacation_end: vacationEnd.toISOString()
+      };
+      
+      const success = await localData.updateSubscription(
+        subscriptionDetails.subscription_id, 
+        updatedSubscription
+      );
+      
+      if (success) {
+        Alert.alert(
+          'Success',
+          subscriptionDetails.vacation_mode ? 
+            'Vacation mode has been disabled' : 
+            'Vacation mode has been enabled',
+          [{ text: 'OK' }]
+        );
+        
+        // Update local state
+        setSubscriptionDetails(updatedSubscription);
+      } else {
+        throw new Error('Failed to update subscription');
+      }
+    } catch (error) {
+      console.error('Error toggling vacation mode:', error);
+      Alert.alert('Error', 'Failed to update vacation mode');
+    } finally {
+      setProcessingSubscription(false);
+      setShowVacationModal(false);
+    }
+  };
+  
+  // Render vacation date picker
+  const renderVacationModal = () => {
+    return (
+      <Modal
+        visible={showVacationModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowVacationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.vacationContainer}>
+            <View style={styles.vacationHeader}>
+              <Text style={styles.vacationTitle}>Set Vacation Period</Text>
+              <TouchableOpacity onPress={() => setShowVacationModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.vacationDescription}>
+              During vacation mode, your subscription will be paused and no deliveries will be made.
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.datePickerButton}
+              onPress={() => {
+                setShowCalendar(true);
+                // Set flag to indicate we're picking vacation start date
+                // This would require additional state management
+              }}
+            >
+              <Text style={styles.dateLabel}>Vacation Start:</Text>
+              <Text style={styles.dateValue}>{formatDate(vacationStart)}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.datePickerButton}
+              onPress={() => {
+                setShowCalendar(true);
+                // Set flag to indicate we're picking vacation end date
+                // This would require additional state management
+              }}
+            >
+              <Text style={styles.dateLabel}>Vacation End:</Text>
+              <Text style={styles.dateValue}>{formatDate(vacationEnd)}</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.vacationButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setShowVacationModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.confirmButton}
+                onPress={toggleVacationMode}
+                disabled={processingSubscription}
+              >
+                {processingSubscription ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>
+                    {subscriptionDetails?.vacation_mode ? 'Disable Vacation' : 'Enable Vacation'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -387,7 +612,7 @@ const SubscriptionScreen = () => {
                   <View style={styles.optionHeader}>
                     <Text style={styles.optionLabel}>{type.label}</Text>
                     <Text style={styles.optionPrice}>
-                      ₹{type.price}
+                      ₹{calculateProductPrice().toFixed(2)}/{type.value}
                     </Text>
                   </View>
                   <Text style={styles.optionDescription}>{type.description}</Text>
@@ -397,6 +622,126 @@ const SubscriptionScreen = () => {
                 </View>
               </TouchableOpacity>
             ))}
+          </View>
+          
+          {/* Add product selection section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Select Products</Text>
+            
+            {products.length > 0 ? (
+              <>
+                <FlatList
+                  data={products}
+                  keyExtractor={(item) => item.product_id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.productOption,
+                        selectedProduct?.product_id === item.product_id && styles.selectedProductOption
+                      ]}
+                      onPress={() => setSelectedProduct(item)}
+                    >
+                      <View style={styles.productImageContainer}>
+                        <Image 
+                          source={getProductImage(item)} 
+                          style={styles.productImage}
+                          resizeMode="contain"
+                        />
+                      </View>
+                      <View style={styles.productInfo}>
+                        <Text style={styles.productName}>{item.name}</Text>
+                        <Text style={styles.productPrice}>₹{item.price.toFixed(2)} per unit</Text>
+                        <Text style={styles.productDescription}>{item.description || 'Fresh milk product'}</Text>
+                      </View>
+                      <View style={[styles.radioButton, selectedProduct?.product_id === item.product_id && styles.radioButtonSelected]}>
+                        {selectedProduct?.product_id === item.product_id && <View style={styles.radioButtonInner} />}
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  scrollEnabled={false}
+                  style={styles.productList}
+                />
+                
+                {selectedProduct && (
+                  <View style={styles.quantitySelector}>
+                    <Text style={styles.quantityLabel}>Quantity:</Text>
+                    <View style={styles.quantityControls}>
+                      <TouchableOpacity 
+                        style={styles.quantityButton}
+                        onPress={() => setQuantity(Math.max(1, quantity - 1))}
+                      >
+                        <Text style={styles.quantityButtonText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.quantityValue}>{quantity}</Text>
+                      <TouchableOpacity 
+                        style={styles.quantityButton}
+                        onPress={() => setQuantity(quantity + 1)}
+                      >
+                        <Text style={styles.quantityButtonText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+                
+                <View style={styles.milkTypeSelector}>
+                  <Text style={styles.milkTypeLabel}>Milk Type:</Text>
+                  <View style={styles.milkTypeOptions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.milkTypeOption,
+                        selectedMilkType === 'regular' && styles.selectedMilkTypeOption
+                      ]}
+                      onPress={() => setSelectedMilkType('regular')}
+                    >
+                      <Text 
+                        style={[
+                          styles.milkTypeText,
+                          selectedMilkType === 'regular' && styles.selectedMilkTypeText
+                        ]}
+                      >
+                        Regular
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.milkTypeOption,
+                        selectedMilkType === 'premium' && styles.selectedMilkTypeOption
+                      ]}
+                      onPress={() => setSelectedMilkType('premium')}
+                    >
+                      <Text 
+                        style={[
+                          styles.milkTypeText,
+                          selectedMilkType === 'premium' && styles.selectedMilkTypeText
+                        ]}
+                      >
+                        Premium (+20%)
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.milkTypeOption,
+                        selectedMilkType === 'organic' && styles.selectedMilkTypeOption
+                      ]}
+                      onPress={() => setSelectedMilkType('organic')}
+                    >
+                      <Text 
+                        style={[
+                          styles.milkTypeText,
+                          selectedMilkType === 'organic' && styles.selectedMilkTypeText
+                        ]}
+                      >
+                        Organic (+50%)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <View style={styles.emptyProductsContainer}>
+                <Text style={styles.emptyProductsText}>No products available from this vendor</Text>
+              </View>
+            )}
           </View>
           
           <View style={styles.section}>
@@ -500,17 +845,66 @@ const SubscriptionScreen = () => {
                   {timeSlots.find(slot => slot.id === selectedTimeSlot)?.time}
                 </Text>
               </View>
+
+              <View style={styles.divider} />
+              
+              {/* Product price calculation */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Per Delivery Price</Text>
+                <Text style={styles.summaryValue}>
+                  ₹{calculateProductPrice().toFixed(2)}
+                </Text>
+              </View>
+              
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Number of Deliveries</Text>
+                <Text style={styles.summaryValue}>
+                  {calculateDeliveryCount()}
+                </Text>
+              </View>
               
               <View style={styles.divider} />
               
               <View style={styles.summaryRow}>
                 <Text style={styles.totalLabel}>Total Amount</Text>
                 <Text style={styles.totalValue}>
-                  ₹{calculateSubscriptionPrice(selectedType)}
+                  ₹{calculateSubscriptionPrice()}
                 </Text>
               </View>
             </View>
           </View>
+          
+          {/* Add vacation button for existing subscriptions */}
+          {subscriptionId && subscriptionDetails && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Vacation Mode</Text>
+              
+              <View style={styles.vacationCard}>
+                <View style={styles.vacationInfo}>
+                  <Text style={styles.vacationLabel}>
+                    {subscriptionDetails.vacation_mode ? 'Vacation Mode is Active' : 'Going on vacation?'}
+                  </Text>
+                  <Text style={styles.vacationSubLabel}>
+                    {subscriptionDetails.vacation_mode 
+                      ? `Deliveries paused from ${formatDate(new Date(subscriptionDetails.vacation_start))} to ${formatDate(new Date(subscriptionDetails.vacation_end))}`
+                      : 'Pause your deliveries while you are away'}
+                  </Text>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[
+                    styles.vacationButton, 
+                    subscriptionDetails.vacation_mode && styles.disableVacationButton
+                  ]}
+                  onPress={() => setShowVacationModal(true)}
+                >
+                  <Text style={styles.vacationButtonText}>
+                    {subscriptionDetails.vacation_mode ? 'Manage Vacation' : 'Set Vacation'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           
           <TouchableOpacity
             style={styles.subscribeButton}
@@ -520,7 +914,9 @@ const SubscriptionScreen = () => {
             {processingSubscription ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.subscribeButtonText}>Subscribe Now</Text>
+              <Text style={styles.subscribeButtonText}>
+                {subscriptionId ? 'Update Subscription' : 'Subscribe Now'}
+              </Text>
             )}
           </TouchableOpacity>
           
@@ -564,6 +960,9 @@ const SubscriptionScreen = () => {
           </View>
         </View>
       </Modal>
+      
+      {/* Vacation Modal */}
+      {renderVacationModal()}
     </SafeAreaView>
   );
 };
@@ -1017,6 +1416,245 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Vacation mode styles
+  vacationCard: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f8f8',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  vacationInfo: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  vacationLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  vacationSubLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  vacationButton: {
+    backgroundColor: '#4e9af1',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  disableVacationButton: {
+    backgroundColor: '#f44336', // Red for disable
+  },
+  vacationButtonText: {
+    color: '#fff',
+    fontWeight: '500',
+    fontSize: 14,
+  },
+  vacationContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    padding: 20,
+    maxHeight: '80%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  vacationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  vacationTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  vacationDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  vacationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: '500',
+  },
+  confirmButton: {
+    backgroundColor: '#4e9af1',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 8,
+  },
+  confirmButtonText: {
+    color: '#fff',
+    fontWeight: '500',
+  },
+  productOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#eee'
+  },
+  selectedProductOption: {
+    borderColor: '#4e9af1',
+    backgroundColor: '#e3f2fd'
+  },
+  productImageContainer: {
+    width: 60,
+    height: 60,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  productImage: {
+    width: 50,
+    height: 50,
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  productPrice: {
+    fontSize: 14,
+    color: '#4e9af1',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  productDescription: {
+    fontSize: 12,
+    color: '#666',
+  },
+  productList: {
+    marginBottom: 12,
+  },
+  quantitySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f8f8',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  quantityLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quantityButton: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#4e9af1',
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quantityButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  quantityValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginHorizontal: 16,
+    minWidth: 20,
+    textAlign: 'center',
+  },
+  milkTypeSelector: {
+    marginBottom: 12,
+  },
+  milkTypeLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 8,
+  },
+  milkTypeOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  milkTypeOption: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  selectedMilkTypeOption: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#4e9af1',
+  },
+  milkTypeText: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
+  selectedMilkTypeText: {
+    color: '#4e9af1',
+  },
+  emptyProductsContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 8,
+  },
+  emptyProductsText: {
+    color: '#666',
+    fontSize: 16,
   },
 });
 

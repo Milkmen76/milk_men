@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -43,6 +43,41 @@ const OrderScreen = () => {
   
   // Mock payment method - in a real app, you would have more payment options
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  
+  // Vacation mode related state
+  const [hasActiveSubscriptions, setHasActiveSubscriptions] = useState(false);
+  const [isOnVacation, setIsOnVacation] = useState(false);
+  
+  // Check if user has active subscriptions and vacation status
+  useEffect(() => {
+    const checkSubscriptionsAndVacation = async () => {
+      if (!user) return;
+      
+      try {
+        // Get user's subscriptions
+        const userSubscriptions = await localData.getSubscriptionsByUser(user.id);
+        
+        // Check if user has any subscriptions
+        setHasActiveSubscriptions(userSubscriptions.length > 0);
+        
+        // Check if all subscriptions are on vacation
+        const allOnVacation = userSubscriptions.length > 0 && 
+          userSubscriptions.every(sub => sub.vacation_mode);
+        
+        setIsOnVacation(allOnVacation);
+      } catch (error) {
+        console.error('Error checking subscriptions:', error);
+      }
+    };
+    
+    checkSubscriptionsAndVacation();
+  }, [user]);
+  
+  // Handle vacation mode button press
+  const handleVacationPress = () => {
+    // Navigate to MyOrdersScreen with subscriptions tab active
+    navigation.navigate('MyOrdersScreen', { initialTab: 'subscriptions' });
+  };
 
   // Get tomorrow's date
   function getTomorrowDate() {
@@ -168,6 +203,31 @@ const OrderScreen = () => {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Complete Your Order</Text>
         </View>
+        
+        {/* Vacation mode banner */}
+        {hasActiveSubscriptions && (
+          <TouchableOpacity 
+            style={[styles.vacationBanner, isOnVacation && styles.activeVacationBanner]}
+            onPress={handleVacationPress}
+          >
+            <View style={styles.vacationIconContainer}>
+              <Text style={styles.vacationIcon}>{isOnVacation ? '✈️' : '🏖️'}</Text>
+            </View>
+            <View style={styles.vacationInfo}>
+              <Text style={styles.vacationTitle}>
+                {isOnVacation ? 'Vacation Mode is Active' : 'Going on vacation?'}
+              </Text>
+              <Text style={styles.vacationDescription}>
+                {isOnVacation 
+                  ? 'Your subscriptions are currently paused' 
+                  : 'Pause your milk deliveries while you\'re away'}
+              </Text>
+            </View>
+            <View style={styles.vacationArrow}>
+              <Text style={styles.vacationArrowText}>›</Text>
+            </View>
+          </TouchableOpacity>
+        )}
         
         <View style={styles.vendorCard}>
           <View style={styles.vendorIconContainer}>
@@ -681,6 +741,61 @@ const styles = StyleSheet.create({
   placeOrderButtonText: {
     color: '#fff',
     fontSize: SIZES.BODY,
+    fontWeight: 'bold',
+  },
+  // Vacation banner styles
+  vacationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: SIZES.PADDING_M,
+    marginTop: SIZES.PADDING_M,
+    marginBottom: SIZES.PADDING_XS,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_L,
+    borderWidth: 1,
+    borderColor: '#4e9af1',
+    borderStyle: 'dashed',
+    ...getShadowStyles(1),
+  },
+  activeVacationBanner: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#FF9800',
+  },
+  vacationIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f8ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.PADDING_M,
+  },
+  vacationIcon: {
+    fontSize: 20,
+  },
+  vacationInfo: {
+    flex: 1,
+  },
+  vacationTitle: {
+    fontSize: SIZES.BODY,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: SIZES.PADDING_XS,
+  },
+  vacationDescription: {
+    fontSize: SIZES.SMALL,
+    color: '#666',
+  },
+  vacationArrow: {
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vacationArrowText: {
+    fontSize: 24,
+    color: '#4e9af1',
     fontWeight: 'bold',
   },
 });

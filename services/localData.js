@@ -438,9 +438,15 @@ export const getUpcomingDeliveries = async (subscriptionId) => {
 };
 
 export const getDeliveriesBySubscription = async (subscriptionId) => {
-  const deliveries = await getDeliveries();
-  return deliveries ? 
-    deliveries.filter(delivery => delivery.subscription_id === subscriptionId) : [];
+  try {
+    const deliveries = await getDeliveries();
+    if (!deliveries) return [];
+    
+    return deliveries.filter(delivery => delivery.subscription_id === subscriptionId);
+  } catch (error) {
+    console.error('Error getting subscription deliveries:', error);
+    return [];
+  }
 };
 
 export const addDelivery = async (deliveryData) => {
@@ -517,9 +523,15 @@ export const updateDeliveryStatus = async (deliveryId, status) => {
 };
 
 export const getSubscriptionById = async (subscriptionId) => {
-  const subscriptions = await getSubscriptions();
-  return subscriptions ? 
-    subscriptions.find(sub => sub.subscription_id === subscriptionId) : null;
+  try {
+    const subscriptions = await getSubscriptions();
+    if (!subscriptions) return null;
+    
+    return subscriptions.find(sub => sub.subscription_id === subscriptionId) || null;
+  } catch (error) {
+    console.error('Error getting subscription by ID:', error);
+    return null;
+  }
 };
 
 // Transaction operations
@@ -717,4 +729,170 @@ export const updatePassword = async (userId, newPassword) => {
     console.error('Update password error:', error);
     return { success: false, message: 'Password update failed' };
   }
+};
+
+// Function to update subscription data
+export const updateSubscription = async (subscriptionId, subscriptionData) => {
+  try {
+    const subscriptions = await getSubscriptions();
+    if (!subscriptions) return false;
+    
+    const index = subscriptions.findIndex(sub => sub.subscription_id === subscriptionId);
+    if (index === -1) return false;
+    
+    // Update the subscription data
+    subscriptions[index] = { 
+      ...subscriptions[index], 
+      ...subscriptionData,
+      updated_at: new Date().toISOString()
+    };
+    
+    // Save the updated subscriptions
+    const success = await writeJsonFile('subscriptions.json', subscriptions);
+    return success;
+  } catch (error) {
+    console.error('Error updating subscription:', error);
+    return false;
+  }
+};
+
+// Function to check if a subscription is on vacation
+export const isSubscriptionOnVacation = async (subscriptionId) => {
+  try {
+    const subscription = await getSubscriptionById(subscriptionId);
+    if (!subscription) return false;
+    
+    // Check if vacation mode is active
+    if (!subscription.vacation_mode) return false;
+    
+    // Check if current date is within vacation period
+    const now = new Date();
+    const vacationStart = new Date(subscription.vacation_start);
+    const vacationEnd = new Date(subscription.vacation_end);
+    
+    return now >= vacationStart && now <= vacationEnd;
+  } catch (error) {
+    console.error('Error checking vacation status:', error);
+    return false;
+  }
+};
+
+// Function to get all active subscriptions (not on vacation)
+export const getActiveSubscriptions = async () => {
+  try {
+    const subscriptions = await getSubscriptions();
+    if (!subscriptions) return [];
+    
+    const now = new Date();
+    
+    // Filter active subscriptions that are not on vacation
+    return subscriptions.filter(sub => {
+      // Must be active status
+      if (sub.status !== 'active') return false;
+      
+      // Check vacation mode
+      if (!sub.vacation_mode) return true;
+      
+      // Check if current date is within vacation period
+      const vacationStart = new Date(sub.vacation_start);
+      const vacationEnd = new Date(sub.vacation_end);
+      
+      return !(now >= vacationStart && now <= vacationEnd);
+    });
+  } catch (error) {
+    console.error('Error getting active subscriptions:', error);
+    return [];
+  }
+};
+
+// Function to get deliveries by order ID
+export const getDeliveriesByOrder = async (orderId) => {
+  try {
+    const deliveries = await getDeliveries();
+    if (!deliveries) return [];
+    
+    return deliveries.filter(delivery => delivery.order_id === orderId);
+  } catch (error) {
+    console.error('Error getting deliveries by order:', error);
+    return [];
+  }
+};
+
+// Function to count delivered orders for invoice and reporting
+export const countDeliveredOrders = async (vendorId, startDate, endDate) => {
+  try {
+    const orders = await getOrders();
+    if (!orders) return 0;
+    
+    // Filter orders that are delivered and within date range
+    const delivered = orders.filter(order => {
+      if (order.vendor_id !== vendorId || order.status !== 'delivered') {
+        return false;
+      }
+      
+      const orderDate = new Date(order.delivery_date || order.created_at || order.date);
+      const start = startDate ? new Date(startDate) : new Date(0); // beginning of time if not specified
+      const end = endDate ? new Date(endDate) : new Date(); // current time if not specified
+      
+      return orderDate >= start && orderDate <= end;
+    });
+    
+    return delivered.length;
+  } catch (error) {
+    console.error('Error counting delivered orders:', error);
+    return 0;
+  }
+};
+
+// Function to generate invoice summary for a vendor
+export const generateInvoiceSummary = async (vendorId, startDate, endDate) => {
+  try {
+    const orders = await getOrdersByVendor(vendorId);
+    const subscriptions = await getSubscriptionsByVendor(vendorId);
+    
+    // Filter to the date range
+    const start = startDate ? new Date(startDate) : new Date(0);
+    const end = endDate ? new Date(endDate) : new Date();
+    
+    // Filter orders
+    const filteredOrders = orders.filter(order => {
+      const orderDate = new Date(order.delivery_date || order.created_at || order.date);
+      return orderDate >= start && orderDate <= end && order.status === 'delivered';
+    });
+    
+    // Calculate total revenue
+    let totalRevenue = 0;
+    filteredOrders.forEach(order => {
+      totalRevenue += parseFloat(order.total || 0);
+    });
+    
+    // Count active subscriptions
+    const activeSubscriptions = subscriptions.filter(sub => {
+      return sub.status === 'active' && !isSubscriptionVacation(sub, start, end);
+    });
+    
+    return {
+      totalOrders: filteredOrders.length,
+      totalRevenue: totalRevenue,
+      activeSubscriptions: activeSubscriptions.length
+    };
+  } catch (error) {
+    console.error('Error generating invoice summary:', error);
+    return {
+      totalOrders: 0,
+      totalRevenue: 0,
+      activeSubscriptions: 0
+    };
+  }
+};
+
+// Helper to check if subscription was on vacation during a period
+const isSubscriptionVacation = (subscription, start, end) => {
+  if (!subscription.vacation_mode) return false;
+  
+  const vacationStart = new Date(subscription.vacation_start);
+  const vacationEnd = new Date(subscription.vacation_end);
+  
+  // Check if vacation period overlaps with the given period
+  return (vacationStart <= end && vacationEnd >= start);
 };

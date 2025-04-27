@@ -16,7 +16,7 @@ const LoginScreen = ({ navigation }) => {
     setShowCredentialsModal(true);
     // Pre-fill credentials based on role
     switch (role) {
-      case 'Costumer':
+      case 'customer':
         setEmail('user1@example.com');
         setPassword('pass123');
         break;
@@ -78,12 +78,12 @@ const LoginScreen = ({ navigation }) => {
       <View style={styles.roleContainer}>
         <TouchableOpacity 
           style={styles.roleButton} 
-          onPress={() => handleRoleSelect('Costumer')}
+          onPress={() => handleRoleSelect('customer')}
         >
           <View style={styles.roleIconContainer}>
             <Text style={styles.roleIcon}>👥</Text>
           </View>
-          <Text style={styles.roleText}>Costumer</Text>
+          <Text style={styles.roleText}>User</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 

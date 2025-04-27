@@ -13,7 +13,8 @@ import {
   TextInput,
   Modal,
   Alert,
-  Platform
+  Platform,
+  StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -255,7 +256,13 @@ const HomeScreen = () => {
   };
 
   const formatDate = (date) => {
-    return formatSimpleDate(date);
+    if (!date) return '';
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   // Get unique product categories
@@ -610,6 +617,8 @@ const HomeScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      
       <View style={styles.header}>
         <Text style={styles.title}>Home</Text>
         

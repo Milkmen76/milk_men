@@ -14,11 +14,13 @@ import {
   Image,
   Animated,
   Share,
-  Modal
+  Modal,
+  RefreshControl
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OrderStatus = {
   PENDING: 'pending',
@@ -60,6 +62,12 @@ const OrderManagementScreen = () => {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [allProducts, setAllProducts] = useState({});
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [activeSubscriptions, setActiveSubscriptions] = useState([]);
+  const [processingDeliveries, setProcessingDeliveries] = useState(false);
+  const [vendorStatus, setVendorStatus] = useState('available'); // 'available' or 'unavailable'
+  const [activeDeliveryCount, setActiveDeliveryCount] = useState(0);
+  const [vacationSubscriptionsCount, setVacationSubscriptionsCount] = useState(0);
   
   // Animation values
   const modalAnimation = useRef(new Animated.Value(0)).current;
@@ -404,43 +412,305 @@ const OrderManagementScreen = () => {
     });
   };
   
+  // Enhanced shareInvoice function with delivery details
   const shareInvoice = async () => {
     if (!selectedItem) return;
     
-    const customer = users[selectedItem.user_id] || {};
-    const customerName = customer.name || 'Unknown Customer';
-    
-    // Prepare content for sharing
-    let invoiceText = `INVOICE\n\n`;
-    invoiceText += `Order #${selectedItem.order_id}\n`;
-    invoiceText += `Date: ${formatDate(selectedItem.created_at || selectedItem.date)}\n`;
-    invoiceText += `Customer: ${customerName}\n\n`;
-    invoiceText += `Status: ${selectedItem.status?.toUpperCase()}\n\n`;
-    
-    // Add product details
-    invoiceText += `ITEMS:\n`;
-    if (Array.isArray(selectedItem.products)) {
-      let total = 0;
-      selectedItem.products.forEach((productId, index) => {
-        const product = allProducts[productId];
-        if (product) {
-          const productTotal = product.price * (selectedItem.quantities?.[index] || 1);
-          total += productTotal;
-          invoiceText += `${product.name} - ₹${product.price.toFixed(2)} x ${selectedItem.quantities?.[index] || 1} = ₹${productTotal.toFixed(2)}\n`;
-        }
-      });
-      invoiceText += `\nTotal: ₹${total.toFixed(2)}`;
-    } else {
-      invoiceText += `Total: ₹${parseFloat(selectedItem.total || 0).toFixed(2)}`;
-    }
-    
     try {
-      await Share.share({
-        message: invoiceText,
-        title: `Invoice for Order #${selectedItem.order_id}`,
-      });
+      setLoading(true);
+      
+      // Get order details
+      const orderData = selectedItem;
+      
+      // Get subscription details if it's a subscription delivery
+      let subscriptionData = null;
+      if (orderData.subscription_id) {
+        subscriptionData = await localData.getSubscriptionById(orderData.subscription_id);
+      }
+      
+      // Get customer details
+      const customer = await localData.getUserById(orderData.user_id);
+      
+      // Get delivery history if exists
+      const deliveries = await localData.getDeliveriesByOrder(orderData.order_id);
+      
+      // Get product details
+      let productDetails = [];
+      let totalAmount = 0;
+      
+      if (Array.isArray(orderData.products)) {
+        const productPromises = orderData.products.map(async (productId, index) => {
+          const product = await localData.getProductById(productId);
+          if (product) {
+            const quantity = orderData.quantities ? orderData.quantities[index] : 1;
+            const amount = product.price * quantity;
+            totalAmount += amount;
+            
+            return {
+              name: product.name,
+              price: product.price,
+              quantity: quantity,
+              amount: amount
+            };
+          }
+          return null;
+        });
+        
+        productDetails = (await Promise.all(productPromises)).filter(p => p !== null);
+      }
+      
+      // Format date
+      const formatInvoiceDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      };
+      
+      // Generate invoice text
+      const invoiceText = 
+        `INVOICE\n` +
+        `===================================\n\n` +
+        `Order ID: ${orderData.order_id}\n` +
+        `Date: ${formatInvoiceDate(orderData.created_at || orderData.date)}\n` +
+        `Status: ${orderData.status.toUpperCase()}\n\n` +
+        
+        `CUSTOMER DETAILS\n` +
+        `===================================\n` +
+        `Name: ${customer?.name || 'N/A'}\n` +
+        `Email: ${customer?.email || 'N/A'}\n` +
+        `Address: ${orderData.delivery_address || customer?.profile_info?.address || 'N/A'}\n\n` +
+        
+        `${subscriptionData ? 'SUBSCRIPTION DETAILS\n' + 
+        '===================================\n' +
+        `Subscription ID: ${subscriptionData.subscription_id}\n` +
+        `Type: ${subscriptionData.type}\n` +
+        `Period: ${formatInvoiceDate(subscriptionData.start_date)} to ${formatInvoiceDate(subscriptionData.end_date)}\n\n` : ''}` +
+        
+        `PRODUCT DETAILS\n` +
+        `===================================\n` +
+        productDetails.map(p => `${p.name} (${p.quantity} x ₹${p.price.toFixed(2)}) = ₹${p.amount.toFixed(2)}`).join('\n') +
+        `\n\n` +
+        
+        `DELIVERY DETAILS\n` +
+        `===================================\n` +
+        `Delivery Date: ${formatInvoiceDate(orderData.delivery_date)}\n` +
+        `Delivery Time: ${orderData.delivery_time || 'N/A'}\n` +
+        (deliveries && deliveries.length > 0 
+          ? `Delivery Status: ${deliveries[0].status}\n` +
+            `Delivered By: ${user.name}\n` +
+            `Delivery Notes: ${deliveries[0].notes || 'None'}\n\n`
+          : `\n`) +
+        
+        `PAYMENT DETAILS\n` +
+        `===================================\n` +
+        `Subtotal: ₹${totalAmount.toFixed(2)}\n` +
+        `Delivery Fee: ₹0.00\n` +
+        `Discount: ₹0.00\n` +
+        `Total Amount: ₹${totalAmount.toFixed(2)}\n\n` +
+        
+        `Thank you for your business!\n` +
+        `===================================\n` +
+        `${user?.profile_info?.business_name || user?.name || 'Milk Delivery'}\n` +
+        `Contact: ${user?.phone_number || user?.email || 'N/A'}`;
+      
+      // Generate HTML invoice for a more professional look
+      const invoiceHtml = `
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .header h1 { color: #4e9af1; margin-bottom: 5px; }
+            .section { margin-bottom: 20px; }
+            .section-title { background-color: #4e9af1; color: white; padding: 5px 10px; font-weight: bold; }
+            .row { display: flex; border-bottom: 1px solid #eee; padding: 8px 0; }
+            .col-left { width: 40%; font-weight: bold; }
+            .col-right { width: 60%; }
+            .products { width: 100%; border-collapse: collapse; margin: 15px 0; }
+            .products th { background-color: #f5f5f5; padding: 8px; text-align: left; }
+            .products td { padding: 8px; border-bottom: 1px solid #eee; }
+            .total-row { font-weight: bold; background-color: #f9f9f9; }
+            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>INVOICE</h1>
+            <p>Order #${orderData.order_id}</p>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">ORDER INFORMATION</div>
+            <div class="row">
+              <div class="col-left">Date:</div>
+              <div class="col-right">${formatInvoiceDate(orderData.created_at || orderData.date)}</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Status:</div>
+              <div class="col-right">${orderData.status.toUpperCase()}</div>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">CUSTOMER DETAILS</div>
+            <div class="row">
+              <div class="col-left">Name:</div>
+              <div class="col-right">${customer?.name || 'N/A'}</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Email:</div>
+              <div class="col-right">${customer?.email || 'N/A'}</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Address:</div>
+              <div class="col-right">${orderData.delivery_address || customer?.profile_info?.address || 'N/A'}</div>
+            </div>
+          </div>
+          
+          ${subscriptionData ? `
+          <div class="section">
+            <div class="section-title">SUBSCRIPTION DETAILS</div>
+            <div class="row">
+              <div class="col-left">Subscription ID:</div>
+              <div class="col-right">${subscriptionData.subscription_id}</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Type:</div>
+              <div class="col-right">${subscriptionData.type}</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Period:</div>
+              <div class="col-right">${formatInvoiceDate(subscriptionData.start_date)} to ${formatInvoiceDate(subscriptionData.end_date)}</div>
+            </div>
+          </div>
+          ` : ''}
+          
+          <div class="section">
+            <div class="section-title">PRODUCT DETAILS</div>
+            <table class="products">
+              <tr>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Quantity</th>
+                <th>Amount</th>
+              </tr>
+              ${productDetails.map(p => `
+                <tr>
+                  <td>${p.name}</td>
+                  <td>₹${p.price.toFixed(2)}</td>
+                  <td>${p.quantity}</td>
+                  <td>₹${p.amount.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="3">Total</td>
+                <td>₹${totalAmount.toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">DELIVERY DETAILS</div>
+            <div class="row">
+              <div class="col-left">Delivery Date:</div>
+              <div class="col-right">${formatInvoiceDate(orderData.delivery_date)}</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Delivery Time:</div>
+              <div class="col-right">${orderData.delivery_time || 'N/A'}</div>
+            </div>
+            ${deliveries && deliveries.length > 0 ? `
+            <div class="row">
+              <div class="col-left">Delivery Status:</div>
+              <div class="col-right">${deliveries[0].status}</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Delivered By:</div>
+              <div class="col-right">${user.name}</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Delivery Notes:</div>
+              <div class="col-right">${deliveries[0].notes || 'None'}</div>
+            </div>
+            ` : ''}
+          </div>
+          
+          <div class="section">
+            <div class="section-title">PAYMENT DETAILS</div>
+            <div class="row">
+              <div class="col-left">Subtotal:</div>
+              <div class="col-right">₹${totalAmount.toFixed(2)}</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Delivery Fee:</div>
+              <div class="col-right">₹0.00</div>
+            </div>
+            <div class="row">
+              <div class="col-left">Discount:</div>
+              <div class="col-right">₹0.00</div>
+            </div>
+            <div class="row total-row">
+              <div class="col-left">Total Amount:</div>
+              <div class="col-right">₹${totalAmount.toFixed(2)}</div>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>Thank you for your business!</p>
+            <p>${user?.profile_info?.business_name || user?.name || 'Milk Delivery'}</p>
+            <p>Contact: ${user?.phone_number || user?.email || 'N/A'}</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Show invoice options
+      Alert.alert(
+        'Invoice Options',
+        'Choose how you would like to share the invoice:',
+        [
+          {
+            text: 'Share as Text',
+            onPress: async () => {
+              try {
+                await Share.share({
+                  message: invoiceText,
+                  title: `Invoice #${orderData.order_id}`
+                });
+              } catch (error) {
+                console.error('Error sharing invoice:', error);
+                Alert.alert('Error', 'Failed to share invoice');
+              }
+            }
+          },
+          {
+            text: 'Share as HTML',
+            onPress: () => {
+              Alert.alert(
+                'HTML Invoice',
+                'In a real app, this would create a PDF from the HTML or save to a file for sharing.',
+                [{ text: 'OK' }]
+              );
+              
+              // In a real app, you would use a library like react-native-html-to-pdf to convert HTML to PDF
+              // and then share the PDF file
+            }
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          }
+        ]
+      );
+      
     } catch (error) {
-      Alert.alert('Error', 'Failed to share invoice');
+      console.error('Error generating invoice:', error);
+      Alert.alert('Error', 'Failed to generate invoice');
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -633,12 +903,21 @@ const OrderManagementScreen = () => {
     const customer = users[item.user_id] || {};
     const customerName = customer.name || 'Unknown Customer';
     
+    // Check if subscription is on vacation
+    const isOnVacation = item.vacation_mode && 
+      new Date() >= new Date(item.vacation_start) && 
+      new Date() <= new Date(item.vacation_end);
+      
+    // Set status display
+    const displayStatus = isOnVacation ? 'On Vacation' : item.status;
+    const statusColor = isOnVacation ? '#FF9800' : getStatusColor(item.status);
+    
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Subscription #{item.subscription_id?.slice(-5)}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{item.status?.toUpperCase() || 'ACTIVE'}</Text>
+          <Text style={styles.cardTitle}>Subscription #{item.subscription_id}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+            <Text style={styles.statusText}>{displayStatus.toUpperCase()}</Text>
           </View>
         </View>
         
@@ -649,35 +928,22 @@ const OrderManagementScreen = () => {
           </View>
           
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Type:</Text>
-            <Text style={styles.detailValue}>
-              {item.type?.charAt(0).toUpperCase() + item.type?.slice(1) || 'N/A'}
-            </Text>
+            <Text style={styles.detailLabel}>Start Date:</Text>
+            <Text style={styles.detailValue}>{formatDate(item.start_date)}</Text>
           </View>
           
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Period:</Text>
-            <Text style={styles.detailValue}>
-              {formatDate(item.start_date).split(' ')[0]} to {formatDate(item.end_date).split(' ')[0]}
-            </Text>
+            <Text style={styles.detailLabel}>End Date:</Text>
+            <Text style={styles.detailValue}>{formatDate(item.end_date)}</Text>
           </View>
           
-          {item.delivery_time && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Delivery:</Text>
-              <Text style={styles.detailValue}>
-                {item.preferred_day || 'Daily'} ({item.delivery_time})
+          {isOnVacation && (
+            <View style={styles.vacationBanner}>
+              <Text style={styles.vacationText}>
+                On vacation until {formatDate(new Date(item.vacation_end))}
               </Text>
             </View>
           )}
-          
-          {/* Upcoming delivery status */}
-          <View style={styles.deliveryStatus}>
-            <Text style={styles.deliveryTitle}>Next Delivery:</Text>
-            <View style={[styles.deliveryBadge, { backgroundColor: getStatusColor(DeliveryStatus.SCHEDULED) }]}>
-              <Text style={styles.deliveryText}>SCHEDULED</Text>
-            </View>
-          </View>
         </View>
         
         <View style={styles.cardFooter}>
@@ -687,17 +953,17 @@ const OrderManagementScreen = () => {
               (item.status === SubscriptionStatus.COMPLETED || 
               item.status === SubscriptionStatus.CANCELLED) && styles.disabledButton
             ]}
-            onPress={() => handleSubscriptionStatusChange(item.subscription_id, item.status || SubscriptionStatus.ACTIVE)}
+            onPress={() => handleSubscriptionStatusChange(item.subscription_id, item.status)}
             disabled={item.status === SubscriptionStatus.COMPLETED || item.status === SubscriptionStatus.CANCELLED}
           >
-            <Text style={styles.actionButtonText}>Update Subscription</Text>
+            <Text style={styles.actionButtonText}>Update Status</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={styles.deliveryButton}
-            onPress={() => handleDeliveryStatusChange('delivery_' + item.subscription_id, DeliveryStatus.SCHEDULED)}
+            style={styles.viewButton}
+            onPress={() => navigation.navigate('SubscriptionDetailsScreen', { subscriptionId: item.subscription_id })}
           >
-            <Text style={styles.deliveryButtonText}>Update Delivery</Text>
+            <Text style={styles.viewButtonText}>View Details</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -746,6 +1012,188 @@ const OrderManagementScreen = () => {
           </TouchableOpacity>
         ))}
       </View>
+    );
+  };
+
+  // Load active subscriptions
+  const loadActiveSubscriptions = async () => {
+    try {
+      // Get all active subscriptions for this vendor
+      const allSubscriptions = await localData.getSubscriptionsByVendor(user.id);
+      
+      // Get currently active subscriptions (not on vacation)
+      const active = await localData.getActiveSubscriptions();
+      const vendorActive = active.filter(sub => sub.vendor_id === user.id);
+      
+      // Get all subscriptions that are active but might be on vacation
+      const activeButMaybeOnVacation = allSubscriptions.filter(sub => 
+        sub.status === 'active' && sub.vendor_id === user.id
+      );
+      
+      // Count subscriptions that are on vacation
+      const onVacation = activeButMaybeOnVacation.filter(sub => {
+        return sub.vacation_mode && 
+               new Date() >= new Date(sub.vacation_start) && 
+               new Date() <= new Date(sub.vacation_end);
+      });
+      
+      // Set all active subscriptions, including those on vacation
+      setActiveSubscriptions(activeButMaybeOnVacation);
+      
+      // Set counts
+      setActiveDeliveryCount(vendorActive.length);
+      setVacationSubscriptionsCount(onVacation.length);
+    } catch (error) {
+      console.error('Error loading active subscriptions:', error);
+    }
+  };
+
+  // Add useEffect to load active subscriptions
+  useEffect(() => {
+    if (user) {
+      loadActiveSubscriptions();
+      
+      // Load vendor status (this would come from a real backend)
+      const loadVendorStatus = async () => {
+        // For now, we'll mock this with local storage
+        try {
+          const status = await AsyncStorage.getItem(`vendor_${user.id}_status`);
+          if (status) {
+            setVendorStatus(status);
+          }
+        } catch (error) {
+          console.error('Error loading vendor status:', error);
+        }
+      };
+      
+      loadVendorStatus();
+    }
+  }, [user]);
+
+  // Toggle vendor availability status
+  const toggleVendorStatus = async () => {
+    try {
+      const newStatus = vendorStatus === 'available' ? 'unavailable' : 'available';
+      
+      // In a real app, this would call an API
+      // For now, just use AsyncStorage
+      await AsyncStorage.setItem(`vendor_${user.id}_status`, newStatus);
+      
+      setVendorStatus(newStatus);
+      
+      // Show confirmation
+      Alert.alert(
+        'Status Updated',
+        `You are now ${newStatus === 'available' ? 'available' : 'unavailable'} for deliveries.`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error updating vendor status:', error);
+      Alert.alert('Error', 'Failed to update status');
+    }
+  };
+
+  // Process all pending deliveries
+  const processBulkDeliveries = async (action) => {
+    if (activeSubscriptions.length === 0) {
+      Alert.alert('No Active Subscriptions', 'There are no active subscriptions to process.');
+      return;
+    }
+    
+    setProcessingDeliveries(true);
+    
+    try {
+      // Create a list of deliveries to process
+      const today = new Date();
+      const deliveryPromises = activeSubscriptions.map(async subscription => {
+        // For each subscription, check if there's a delivery due today
+        // In a real app, this would be more sophisticated
+        
+        const deliveryData = {
+          subscription_id: subscription.subscription_id,
+          user_id: subscription.user_id,
+          vendor_id: user.id,
+          scheduled_date: today.toISOString(),
+          status: action === 'deliver' ? 'delivered' : 'canceled',
+          created_at: new Date().toISOString()
+        };
+        
+        await localData.addDelivery(deliveryData);
+      });
+      
+      await Promise.all(deliveryPromises);
+      
+      // Show success message
+      Alert.alert(
+        'Success',
+        action === 'deliver' ? 
+          'All active subscriptions have been marked as delivered.' : 
+          'All active subscriptions have been marked as out of delivery.',
+        [{ text: 'OK' }]
+      );
+      
+      // Refresh data
+      loadActiveSubscriptions();
+    } catch (error) {
+      console.error('Error processing bulk deliveries:', error);
+      Alert.alert('Error', 'Failed to process deliveries');
+    } finally {
+      setProcessingDeliveries(false);
+      setShowSubscriptionModal(false);
+    }
+  };
+
+  // Render subscription management modal
+  const renderSubscriptionModal = () => {
+    return (
+      <Modal
+        visible={showSubscriptionModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowSubscriptionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Subscription Management</Text>
+              <TouchableOpacity onPress={() => setShowSubscriptionModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.modalDescription}>
+              You have {activeSubscriptions.length} active subscriptions.
+              Choose an action to apply to all active subscriptions.
+            </Text>
+            
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.deliverButton]}
+                onPress={() => processBulkDeliveries('deliver')}
+                disabled={processingDeliveries}
+              >
+                {processingDeliveries ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.actionButtonText}>Mark All as Delivered</Text>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.cancelButton]}
+                onPress={() => processBulkDeliveries('cancel')}
+                disabled={processingDeliveries}
+              >
+                {processingDeliveries ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.actionButtonText}>Mark All as Out of Delivery</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     );
   };
 
@@ -889,6 +1337,31 @@ const OrderManagementScreen = () => {
           )}
         </>
       )}
+      
+      {/* Add at the top of your existing UI */}
+      <View style={styles.vendorControlsContainer}>
+        <TouchableOpacity
+          style={[
+            styles.statusToggle,
+            vendorStatus === 'available' ? styles.availableStatus : styles.unavailableStatus
+          ]}
+          onPress={toggleVendorStatus}
+        >
+          <Text style={styles.statusToggleText}>
+            {vendorStatus === 'available' ? 'Available for Delivery' : 'Unavailable for Delivery'}
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.subscriptionManageButton}
+          onPress={() => setShowSubscriptionModal(true)}
+        >
+          <Text style={styles.subscriptionManageText}>Manage Subscriptions</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Add the subscription modal */}
+      {renderSubscriptionModal()}
     </SafeAreaView>
   );
 };
@@ -1328,6 +1801,291 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
+  },
+  vendorControlsContainer: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    margin: 16,
+    marginBottom: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  statusToggle: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  availableStatus: {
+    backgroundColor: '#4CAF50',
+  },
+  unavailableStatus: {
+    backgroundColor: '#F44336',
+  },
+  statusToggleText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  subscriptionManageButton: {
+    backgroundColor: '#4e9af1',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  subscriptionManageText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxHeight: '80%',
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 20,
+  },
+  buttonContainer: {
+    marginTop: 20,
+  },
+  item: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5'
+  },
+  itemHeaderLeft: {
+  },
+  itemHeaderRight: {
+  },
+  itemTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333'
+  },
+  itemDate: {
+    fontSize: 14,
+    color: '#666'
+  },
+  itemBody: {
+    padding: 16
+  },
+  customerName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 8
+  },
+  deliveryDetails: {
+    fontSize: 14,
+    color: '#666'
+  },
+  deliveryInfo: {
+    flexDirection: 'row',
+    marginBottom: 8
+  },
+  infoLabel: {
+    width: 90,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666'
+  },
+  infoValue: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333'
+  },
+  vacationBanner: {
+    padding: 10,
+    borderRadius: 6,
+    backgroundColor: '#fff3e0',
+    marginTop: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+  vacationText: {
+    color: '#FF9800',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  itemActions: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#f5f5f5'
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#f5f7fa'
+  },
+  actionButtonText: {
+    color: '#666',
+    fontWeight: '500'
+  },
+  // Dashboard styles
+  dashboardSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    marginBottom: 20,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 15,
+    marginHorizontal: 5,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  summaryValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4e9af1',
+    marginBottom: 5,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  
+  // Subscription item styles
+  subscriptionItem: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  subscriptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#f9f9f9',
+  },
+  customerInfo: {
+    flex: 1,
+  },
+  customerName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  subscriptionId: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  activeBadge: {
+    backgroundColor: '#e6f7ed',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  activeText: {
+    color: '#1e8a3e',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  vacationBadge: {
+    backgroundColor: '#fef2d9',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  vacationText: {
+    color: '#f5a623',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  subscriptionBody: {
+    padding: 12,
+  },
+  productInfo: {
+    marginBottom: 10,
+  },
+  productName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 4,
+  },
+  productDetails: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  deliveryInfo: {
+    fontSize: 13,
+    color: '#4e9af1',
+    marginTop: 2,
+  },
+  vacationDeliveryInfo: {
+    color: '#f5a623',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  actionButton: {
+    backgroundColor: '#4e9af1',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

@@ -12,17 +12,24 @@ import {
   StatusBar,
   Image,
   Animated,
-  Keyboard
+  Keyboard,
+  Modal,
+  Alert,
+  DatePickerIOS,
+  DatePickerAndroid
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as localData from '../../services/localData';
+import { useAuth } from '../../contexts/AuthContext';
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 
 const MyOrdersScreen = () => {
   const navigation = useNavigation();
-  const [activeTab, setActiveTab] = useState('orders');
+  const route = useRoute();
+  const initialTabFromParams = route.params?.initialTab || 'orders';
+  const [activeTab, setActiveTab] = useState(initialTabFromParams);
   const [orders, setOrders] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +37,14 @@ const MyOrdersScreen = () => {
   const [userId, setUserId] = useState(null);
   const [showEmptyAnimation] = useState(new Animated.Value(0));
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { user } = useAuth();
+  
+  // Vacation mode state and modal
+  const [showVacationModal, setShowVacationModal] = useState(false);
+  const [vacationStart, setVacationStart] = useState(new Date());
+  const [vacationEnd, setVacationEnd] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)); // Default 1 week
+  const [processingVacation, setProcessingVacation] = useState(false);
+  const [globalVacationMode, setGlobalVacationMode] = useState(false);
 
   // Get user ID from AsyncStorage on component mount
   useEffect(() => {
@@ -348,6 +363,251 @@ const MyOrdersScreen = () => {
     return null;
   };
 
+  // New function to handle global vacation mode
+  const handleVacationToggle = async () => {
+    if (!user) return;
+    
+    try {
+      setProcessingVacation(true);
+      
+      // Get all user subscriptions
+      const userSubscriptions = await localData.getSubscriptionsByUser(user.id);
+      
+      // Check if any subscription has vacation mode enabled
+      const hasVacationEnabled = userSubscriptions.some(sub => sub.vacation_mode);
+      
+      // If any subscription has vacation, disable for all. Otherwise enable for all.
+      const updatePromises = userSubscriptions.map(async (subscription) => {
+        const updatedSubscription = {
+          ...subscription,
+          vacation_mode: !hasVacationEnabled,
+          vacation_start: vacationStart.toISOString(),
+          vacation_end: vacationEnd.toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        return localData.updateSubscription(subscription.subscription_id, updatedSubscription);
+      });
+      
+      await Promise.all(updatePromises);
+      
+      // Show success message
+      Alert.alert(
+        'Success',
+        hasVacationEnabled ? 
+          'Vacation mode has been disabled for all subscriptions' : 
+          'Vacation mode has been enabled for all subscriptions',
+        [{ text: 'OK' }]
+      );
+      
+      // Update UI state
+      setGlobalVacationMode(!hasVacationEnabled);
+      setShowVacationModal(false);
+      
+      // Refresh data
+      loadData();
+      
+    } catch (error) {
+      console.error('Error toggling vacation mode:', error);
+      Alert.alert('Error', 'Failed to update vacation mode');
+    } finally {
+      setProcessingVacation(false);
+    }
+  };
+
+  // Check global vacation status on mount
+  useEffect(() => {
+    const checkVacationStatus = async () => {
+      if (!user) return;
+      
+      try {
+        const userSubscriptions = await localData.getSubscriptionsByUser(user.id);
+        
+        // If all subscriptions have vacation mode enabled, global vacation is on
+        const allOnVacation = userSubscriptions.length > 0 && 
+          userSubscriptions.every(sub => sub.vacation_mode);
+        
+        setGlobalVacationMode(allOnVacation);
+        
+        // If we have any subscription dates, use them to set the vacation dates
+        const vacationSub = userSubscriptions.find(sub => sub.vacation_mode);
+        if (vacationSub) {
+          if (vacationSub.vacation_start) {
+            setVacationStart(new Date(vacationSub.vacation_start));
+          }
+          if (vacationSub.vacation_end) {
+            setVacationEnd(new Date(vacationSub.vacation_end));
+          }
+        }
+      } catch (error) {
+        console.error('Error checking vacation status:', error);
+      }
+    };
+    
+    checkVacationStatus();
+  }, [user]);
+
+  // Format date for display
+  const formatVacationDate = (date) => {
+    if (!date) return '';
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Add this function before renderVacationModal
+  const showDatePickerForPlatform = async (currentDate, onDateChange) => {
+    if (Platform.OS === 'ios') {
+      // On iOS we'll handle this in the modal
+      return false;
+    } else if (Platform.OS === 'android') {
+      try {
+        const { action, year, month, day } = await DatePickerAndroid.open({
+          date: currentDate,
+          mode: 'calendar',
+        });
+
+        if (action === DatePickerAndroid.dateSetAction) {
+          const selectedDate = new Date(year, month, day);
+          onDateChange(selectedDate);
+        }
+      } catch (error) {
+        console.error('Cannot open date picker', error);
+      }
+      return true;
+    }
+  };
+
+  // Render vacation mode modal
+  const renderVacationModal = () => {
+    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+    const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+    
+    return (
+      <Modal
+        visible={showVacationModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowVacationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.vacationModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Set Vacation Period</Text>
+              <TouchableOpacity onPress={() => setShowVacationModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.modalDescription}>
+              During vacation, all your deliveries will be paused.
+              Set the dates when you'll be away:
+            </Text>
+            
+            <View style={styles.dateRow}>
+              <Text style={styles.dateLabel}>Start Date:</Text>
+              <TouchableOpacity
+                style={styles.datePicker}
+                onPress={async () => {
+                  const handled = await showDatePickerForPlatform(vacationStart, (date) => {
+                    setVacationStart(date);
+                  });
+                  if (!handled) {
+                    setShowStartDatePicker(!showStartDatePicker);
+                    setShowEndDatePicker(false);
+                  }
+                }}
+              >
+                <Text style={styles.dateValue}>{formatVacationDate(vacationStart)}</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {showStartDatePicker && Platform.OS === 'ios' && (
+              <View style={styles.datePickerContainer}>
+                <DatePickerIOS
+                  date={vacationStart}
+                  onDateChange={setVacationStart}
+                  mode="date"
+                  minimumDate={new Date()}
+                />
+                <TouchableOpacity 
+                  style={styles.datePickerDoneButton}
+                  onPress={() => setShowStartDatePicker(false)}
+                >
+                  <Text style={styles.datePickerDoneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            <View style={styles.dateRow}>
+              <Text style={styles.dateLabel}>End Date:</Text>
+              <TouchableOpacity
+                style={styles.datePicker}
+                onPress={async () => {
+                  const handled = await showDatePickerForPlatform(vacationEnd, (date) => {
+                    setVacationEnd(date);
+                  });
+                  if (!handled) {
+                    setShowEndDatePicker(!showEndDatePicker);
+                    setShowStartDatePicker(false);
+                  }
+                }}
+              >
+                <Text style={styles.dateValue}>{formatVacationDate(vacationEnd)}</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {showEndDatePicker && Platform.OS === 'ios' && (
+              <View style={styles.datePickerContainer}>
+                <DatePickerIOS
+                  date={vacationEnd}
+                  onDateChange={setVacationEnd}
+                  mode="date"
+                  minimumDate={vacationStart}
+                />
+                <TouchableOpacity 
+                  style={styles.datePickerDoneButton}
+                  onPress={() => setShowEndDatePicker(false)}
+                >
+                  <Text style={styles.datePickerDoneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowVacationModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  globalVacationMode ? styles.disableButton : styles.enableButton
+                ]}
+                onPress={handleVacationToggle}
+                disabled={processingVacation}
+              >
+                {processingVacation ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>
+                    {globalVacationMode ? 'Disable Vacation' : 'Enable Vacation'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -403,6 +663,33 @@ const MyOrdersScreen = () => {
           </TouchableOpacity>
         </View>
         
+        {/* Vacation mode banner for subscriptions tab */}
+        {activeTab === 'subscriptions' && (
+          <View style={styles.vacationBanner}>
+            <View style={styles.vacationInfo}>
+              <Text style={styles.vacationTitle}>
+                {globalVacationMode ? 'Vacation Mode is Active' : 'Going on vacation?'}
+              </Text>
+              <Text style={styles.vacationDescription}>
+                {globalVacationMode 
+                  ? `All deliveries paused until ${formatVacationDate(vacationEnd)}` 
+                  : 'Pause all your deliveries while you are away'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.vacationButton,
+                globalVacationMode ? styles.disableVacationButton : styles.enableVacationButton
+              ]}
+              onPress={() => setShowVacationModal(true)}
+            >
+              <Text style={styles.vacationButtonText}>
+                {globalVacationMode ? 'Manage Vacation' : 'Set Vacation'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         {activeTab === 'orders' ? (
           <FlatList
             data={filterItems(orders)}
@@ -425,6 +712,9 @@ const MyOrdersScreen = () => {
           />
         )}
       </View>
+      
+      {/* Vacation Mode Modal */}
+      {renderVacationModal()}
     </SafeAreaView>
   );
 };
@@ -683,6 +973,154 @@ const styles = StyleSheet.create({
     fontSize: SIZES.SMALL,
     color: '#333',
     fontWeight: '500',
+  },
+  vacationBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f8f8',
+    margin: SIZES.PADDING_M,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_M,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    ...getShadowStyles(1),
+  },
+  vacationInfo: {
+    flex: 1,
+    paddingRight: SIZES.PADDING_S,
+  },
+  vacationTitle: {
+    fontSize: SIZES.BODY,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: SIZES.PADDING_XS,
+  },
+  vacationDescription: {
+    fontSize: SIZES.SMALL,
+    color: '#666',
+  },
+  vacationButton: {
+    paddingVertical: SIZES.PADDING_S,
+    paddingHorizontal: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
+    alignItems: 'center',
+    minWidth: scale(100),
+  },
+  enableVacationButton: {
+    backgroundColor: '#4e9af1',
+  },
+  disableVacationButton: {
+    backgroundColor: '#F44336',
+  },
+  vacationButtonText: {
+    fontSize: SIZES.SMALL,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.PADDING_M,
+  },
+  vacationModal: {
+    backgroundColor: '#fff',
+    borderRadius: SIZES.RADIUS_M,
+    width: '100%',
+    padding: SIZES.PADDING_L,
+    ...getShadowStyles(5),
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.PADDING_M,
+  },
+  modalTitle: {
+    fontSize: SIZES.SUBTITLE,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeButton: {
+    fontSize: SIZES.TITLE,
+    color: '#999',
+    padding: SIZES.PADDING_XS,
+  },
+  modalDescription: {
+    fontSize: SIZES.BODY,
+    color: '#666',
+    marginBottom: SIZES.PADDING_M,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.PADDING_M,
+  },
+  datePicker: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    padding: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: SIZES.PADDING_M,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
+    alignItems: 'center',
+    marginRight: SIZES.PADDING_S,
+  },
+  cancelButtonText: {
+    fontSize: SIZES.BODY,
+    color: '#666',
+    fontWeight: '500',
+  },
+  confirmButton: {
+    flex: 2,
+    padding: SIZES.PADDING_M,
+    borderRadius: SIZES.RADIUS_S,
+    alignItems: 'center',
+    marginLeft: SIZES.PADDING_S,
+  },
+  enableButton: {
+    backgroundColor: '#4e9af1',
+  },
+  disableButton: {
+    backgroundColor: '#F44336',
+  },
+  confirmButtonText: {
+    fontSize: SIZES.BODY,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  datePickerContainer: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: SIZES.RADIUS_M,
+    marginBottom: SIZES.PADDING_M,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  datePickerDoneButton: {
+    backgroundColor: '#4e9af1',
+    padding: SIZES.PADDING_S,
+    borderRadius: SIZES.RADIUS_S,
+    alignSelf: 'flex-end',
+    marginTop: SIZES.PADDING_XS,
+    marginRight: SIZES.PADDING_S,
+    marginBottom: SIZES.PADDING_XS,
+  },
+  datePickerDoneText: {
+    fontSize: SIZES.BODY,
+    color: '#fff',
+    fontWeight: '600',
   },
 });
 
