@@ -10,12 +10,17 @@ import {
   FlatList,
   SafeAreaView,
   StatusBar,
-  Platform
+  Platform,
+  Dimensions,
+  Animated
 } from 'react-native';
 import { scale, verticalScale, moderateScale, fontScale, SIZES, getShadowStyles } from '../../utils/responsive';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import * as localData from '../../services/localData';
+
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = width * 0.9;
 
 const DashboardScreen = () => {
   const navigation = useNavigation();
@@ -121,10 +126,13 @@ const DashboardScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4e9af1" />
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4e9af1" />
+          <Text style={styles.loadingText}>Loading dashboard...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -132,8 +140,8 @@ const DashboardScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor="#fff" barStyle="dark-content" />
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <View style={styles.headerContainer}>
         <View style={styles.header}>
           <View>
             <Text style={styles.welcomeText}>Welcome,</Text>
@@ -150,7 +158,9 @@ const DashboardScreen = () => {
             />
           </TouchableOpacity>
         </View>
-      
+      </View>
+
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentContainer}>
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{stats.totalProducts}</Text>
@@ -198,9 +208,12 @@ const DashboardScreen = () => {
               renderItem={renderOrderItem}
               keyExtractor={item => item.order_id}
               scrollEnabled={false} // Disable scrolling as it's inside a ScrollView
+              contentContainerStyle={styles.ordersList}
             />
           ) : (
-            <Text style={styles.emptyText}>No orders yet</Text>
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No orders yet</Text>
+            </View>
           )}
           
           {orders.length > 5 && (
@@ -221,18 +234,33 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  headerContainer: {
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f9f9f9',
+  },
+  contentContainer: {
+    paddingBottom: 24,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f9f9f9',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   loadingText: {
     marginTop: SIZES.PADDING_M,
@@ -244,11 +272,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: SIZES.PADDING_M,
-    paddingVertical: SIZES.PADDING_L,
+    paddingVertical: 16,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    ...getShadowStyles(2)
   },
   welcomeText: {
     fontSize: SIZES.BODY,
@@ -276,80 +301,118 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     padding: SIZES.PADDING_S,
     justifyContent: 'space-between',
-    marginTop: SIZES.PADDING_S
+    marginTop: 16,
+    marginHorizontal: 8,
   },
   statCard: {
     width: '48%',
     backgroundColor: '#fff',
-    borderRadius: SIZES.RADIUS_M,
-    padding: SIZES.PADDING_M,
-    margin: SIZES.PADDING_XS,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     alignItems: 'center',
-    minHeight: verticalScale(100),
     justifyContent: 'center',
-    ...getShadowStyles(2)
+    minHeight: verticalScale(90),
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   statValue: {
-    fontSize: SIZES.TITLE,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#4e9af1',
-    marginBottom: SIZES.PADDING_XS
+    marginBottom: 8
   },
   statLabel: {
-    fontSize: SIZES.CAPTION,
-    color: '#666'
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center'
   },
   actionsContainer: {
-    padding: SIZES.PADDING_M,
+    padding: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
+    marginHorizontal: 8,
   },
   actionButton: {
     flex: 1,
     backgroundColor: '#4e9af1',
-    padding: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_M,
-    marginHorizontal: SIZES.PADDING_XS,
+    padding: 14,
+    borderRadius: 12,
+    marginHorizontal: 6,
     alignItems: 'center',
-    minHeight: SIZES.BUTTON_HEIGHT,
-    justifyContent: 'center'
+    minHeight: 48,
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   actionButtonText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: SIZES.BODY
+    fontSize: 16
   },
   section: {
-    padding: SIZES.PADDING_M
+    padding: 16,
+    marginHorizontal: 8,
   },
   sectionTitle: {
-    fontSize: SIZES.SUBTITLE,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: SIZES.PADDING_M,
+    marginBottom: 16,
     color: '#333'
+  },
+  ordersList: {
+    marginBottom: 8,
   },
   orderCard: {
     backgroundColor: '#fff',
-    borderRadius: SIZES.RADIUS_M,
-    padding: SIZES.PADDING_M,
-    marginBottom: SIZES.PADDING_M,
-    ...getShadowStyles(2)
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SIZES.PADDING_S
+    marginBottom: 10
   },
   orderTitle: {
-    fontSize: SIZES.BODY,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333'
   },
   statusBadge: {
-    paddingHorizontal: SIZES.PADDING_S,
-    paddingVertical: SIZES.PADDING_XS,
-    borderRadius: SIZES.RADIUS_S
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8
   },
   pendingStatus: {
     backgroundColor: '#f0ad4e'
@@ -365,61 +428,87 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: '#fff',
-    fontSize: SIZES.SMALL,
-    fontWeight: '600'
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'capitalize'
   },
   orderDate: {
-    fontSize: SIZES.CAPTION,
+    fontSize: 14,
     color: '#666',
-    marginBottom: SIZES.PADDING_XS
+    marginBottom: 6
   },
   orderAmount: {
-    fontSize: SIZES.BODY,
+    fontSize: 16,
     fontWeight: '500',
     color: '#333',
-    marginBottom: SIZES.PADDING_M
+    marginBottom: 16
   },
   orderActions: {
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    paddingTop: SIZES.PADDING_M,
+    paddingTop: 12,
     flexDirection: 'row',
     justifyContent: 'flex-end'
   },
   orderActionButton: {
-    backgroundColor: '#f8f9fa',
-    paddingVertical: SIZES.PADDING_S,
-    paddingHorizontal: SIZES.PADDING_M,
-    borderRadius: SIZES.RADIUS_S,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    minHeight: verticalScale(36),
+    backgroundColor: '#4e9af1',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minHeight: 36,
     justifyContent: 'center',
     alignItems: 'center'
   },
   orderActionButtonText: {
-    color: '#495057',
-    fontSize: SIZES.CAPTION,
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '500'
+  },
+  emptyContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   emptyText: {
     textAlign: 'center',
     color: '#666',
-    padding: SIZES.PADDING_L,
-    fontSize: SIZES.BODY
+    fontSize: 16
   },
   viewAllButton: {
     alignItems: 'center',
-    padding: SIZES.PADDING_M,
-    marginTop: SIZES.PADDING_S,
+    padding: 14,
+    marginTop: 12,
     backgroundColor: '#fff',
-    borderRadius: SIZES.RADIUS_M,
-    ...getShadowStyles(1)
+    borderRadius: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   viewAllButtonText: {
     color: '#4e9af1',
     fontWeight: '600',
-    fontSize: SIZES.BODY
+    fontSize: 16
   }
 });
 

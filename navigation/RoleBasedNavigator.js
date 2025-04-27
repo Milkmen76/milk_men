@@ -11,7 +11,6 @@ const Stack = createNativeStackNavigator();
 
 const RoleBasedNavigator = () => {
   const { user, loading } = useAuth();
-w
   console.log('RoleBasedNavigator - User:', user?.id);
   console.log('RoleBasedNavigator - Role:', user?.role);
   console.log('RoleBasedNavigator - Loading:', loading);
